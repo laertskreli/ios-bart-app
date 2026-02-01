@@ -8,7 +8,7 @@ enum AppConfig {
         if let envHost = ProcessInfo.processInfo.environment["treals-mac-mini.tail3eabbc.ts.net"] {
             return envHost
         }
-        return "treals-mac-mini.tail3eabbc.ts.net"
+        return "treals-mac-mini-1.tail3eabbc.ts.net"
     }()
 
     /// The port for OpenClaw Gateway (direct Tailscale connection)

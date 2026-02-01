@@ -5,14 +5,14 @@ enum AppConfig {
     /// The Tailscale hostname for the OpenClaw Gateway
     static let gatewayHost: String = {
         // Check for environment variable first (useful for testing)
-        if let envHost = ProcessInfo.processInfo.environment["BART_GATEWAY_HOST"] {
+        if let envHost = ProcessInfo.processInfo.environment["treals-mac-mini.tail3eabbc.ts.net"] {
             return envHost
         }
-        return "treals-mac-mini-1.tail3eabbc.ts.net"
+        return "treals-mac-mini.tail3eabbc.ts.net"
     }()
 
-    /// The port the OpenClaw Gateway listens on
-    static let gatewayPort: Int = 18789
+    /// The port for Tailscale Serve (proxies to local gateway)
+    static let gatewayPort: Int = 443
 
     /// Enable debug logging
     static let debugLogging: Bool = {

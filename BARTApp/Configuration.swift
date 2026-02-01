@@ -11,8 +11,8 @@ enum AppConfig {
         return "treals-mac-mini.tail3eabbc.ts.net"
     }()
 
-    /// The port for Tailscale Serve (proxies to local gateway)
-    static let gatewayPort: Int = 443
+    /// The port for OpenClaw Gateway (direct Tailscale connection)
+    static let gatewayPort: Int = 18789
 
     /// Enable debug logging
     static let debugLogging: Bool = {

@@ -89,13 +89,8 @@ class GatewayConnection: NSObject, ObservableObject {
         isHandshakeComplete = false
         connectNonce = nil
 
-        // Use wss:// without port (Tailscale Serve handles it)
-        let urlString: String
-        if port == 443 {
-            urlString = "wss://\(gatewayHost)"
-        } else {
-            urlString = "wss://\(gatewayHost):\(port)"
-        }
+        // Use ws:// for direct Tailscale connection (encrypted by WireGuard)
+        let urlString = "ws://\(gatewayHost):\(port)"
 
         guard let url = URL(string: urlString) else {
             connectionState = .failed("Invalid gateway URL")

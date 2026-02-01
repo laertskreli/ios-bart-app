@@ -13,11 +13,19 @@ class GatewayConnection: NSObject, ObservableObject {
     @Published private(set) var conversations: [String: Conversation] = [:]
     @Published private(set) var subAgents: [SubAgentInfo] = []
     @Published private(set) var deviceIdentity: DeviceIdentity
+    @Published private(set) var isBotTyping: [String: Bool] = [:]  // sessionKey -> isTyping
+    @Published private(set) var activeSessions: [SessionInfo] = []  // All active sessions including subagents
+
+    // Track streaming messages by session
+    private var streamingMessageIds: [String: String] = [:]  // sessionKey -> messageId
 
     // MARK: - Configuration
 
-    private let gatewayHost: String
-    private let port: Int
+    private var gatewayHost: String
+    private var port: Int
+    private var useSSL: Bool
+    private var gatewayToken: String = ""  // Set via manual entry or after pairing
+    private var verificationCode: String?  // Optional QR verification code
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession!
     private var responseHandlers: [String: ([String: Any]) -> Void] = [:]
@@ -29,14 +37,23 @@ class GatewayConnection: NSObject, ObservableObject {
     // Connection handshake state
     private var isHandshakeComplete = false
     private var connectNonce: String?
+    private var connectRequestSent = false
+
+    // Polling for messages (fallback when subscriptions don't work)
+    private var messagePollingTimer: Timer?
+    private var lastKnownMessageCount: [String: Int] = [:]
+    private var activePollingSessionKeys: Set<String> = []  // Sessions to poll - populated from sessions.list
 
     private let keychainService = "openclaw-node-token"
+    private let gatewayConfigKey = "openclaw-gateway-config"
+    private let conversationsStorageKey = "openclaw-conversations"
 
     // MARK: - Init
 
-    init(gatewayHost: String, port: Int = 443) {
+    init(gatewayHost: String, port: Int = 443, useSSL: Bool = true) {
         self.gatewayHost = gatewayHost
         self.port = port
+        self.useSSL = useSSL
         self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
 
         super.init()
@@ -45,10 +62,130 @@ class GatewayConnection: NSObject, ObservableObject {
         config.waitsForConnectivity = true
         self.urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
-        if let token = KeychainHelper.loadString(service: keychainService, account: "openclaw-\(deviceIdentity.nodeId)") {
+        // Load saved device token for authentication
+        let keychainAccount = "openclaw-\(deviceIdentity.nodeId)"
+        print("🔍 Looking for saved token with key: \(keychainAccount)")
+
+        if let token = KeychainHelper.loadString(service: keychainService, account: keychainAccount) {
             self.pairingState = .paired(token: token)
             self.deviceIdentity.pairingToken = token
+            self.gatewayToken = token  // Use saved device token for auth
+            let tokenPreview = String(token.prefix(8)) + "..."
+            print("🔑 Loaded saved device token: \(tokenPreview)")
+        } else {
+            print("⚠️ No saved token found - will need to pair")
         }
+
+        // Load saved gateway config
+        loadSavedGatewayConfig()
+        print("🌐 Gateway config: \(gatewayHost):\(port), SSL: \(useSSL)")
+
+        // Load saved conversations
+        loadSavedConversations()
+    }
+
+    // MARK: - Gateway Configuration
+
+    func setGatewayToken(_ token: String) {
+        self.gatewayToken = token
+        saveGatewayConfig()
+    }
+
+    func updateConnectionConfig(host: String, port: Int, useSSL: Bool) {
+        self.gatewayHost = host
+        self.port = port
+        self.useSSL = useSSL
+        saveGatewayConfig()
+    }
+
+    func connectWithQRPayload(_ payload: QRPairingPayload) {
+        guard let config = payload.hostAndPort else {
+            connectionState = .failed("Invalid gateway URL in QR code")
+            return
+        }
+
+        self.gatewayHost = config.host
+        self.port = config.port
+        self.useSSL = config.useSSL
+        // Use token from QR code if present
+        if let token = payload.token, !token.isEmpty {
+            self.gatewayToken = token
+            let tokenPreview = String(token.prefix(8)) + "..." + String(token.suffix(4))
+            print("🔑 Got token from QR code: \(tokenPreview)")
+        } else {
+            print("⚠️ QR code has no token")
+        }
+        self.verificationCode = payload.verificationCode
+        saveGatewayConfig()
+
+        connect()
+    }
+
+    private func saveGatewayConfig() {
+        let config: [String: Any] = [
+            "host": gatewayHost,
+            "port": port,
+            "useSSL": useSSL,
+            "token": gatewayToken
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: config) {
+            UserDefaults.standard.set(data, forKey: gatewayConfigKey)
+        }
+    }
+
+    private func loadSavedGatewayConfig() {
+        guard let data = UserDefaults.standard.data(forKey: gatewayConfigKey),
+              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return
+        }
+
+        if let host = config["host"] as? String {
+            self.gatewayHost = host
+        }
+        if let port = config["port"] as? Int {
+            self.port = port
+        }
+        if let useSSL = config["useSSL"] as? Bool {
+            self.useSSL = useSSL
+        }
+        if let token = config["token"] as? String {
+            self.gatewayToken = token
+        }
+    }
+
+    // MARK: - Conversation Persistence
+
+    private func loadSavedConversations() {
+        guard let data = UserDefaults.standard.data(forKey: conversationsStorageKey) else {
+            print("📂 No saved conversations found")
+            return
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode([String: Conversation].self, from: data)
+            self.conversations = decoded
+            let messageCount = decoded.values.reduce(0) { $0 + $1.messages.count }
+            print("📂 Loaded \(decoded.count) conversations with \(messageCount) messages")
+        } catch {
+            print("❌ Failed to load conversations: \(error)")
+        }
+    }
+
+    private func saveConversations() {
+        do {
+            let data = try JSONEncoder().encode(conversations)
+            UserDefaults.standard.set(data, forKey: conversationsStorageKey)
+            print("💾 Saved \(conversations.count) conversations")
+        } catch {
+            print("❌ Failed to save conversations: \(error)")
+        }
+    }
+
+    func clearConversationHistory() {
+        conversations = [:]
+        UserDefaults.standard.removeObject(forKey: conversationsStorageKey)
+        ContentParser.clearCache()
+        print("🗑️ Cleared all conversation history and parser cache")
     }
 
     // MARK: - Device Identity
@@ -88,23 +225,42 @@ class GatewayConnection: NSObject, ObservableObject {
         connectionState = .connecting
         isHandshakeComplete = false
         connectNonce = nil
+        connectRequestSent = false
 
-        // Use ws:// for direct Tailscale connection (encrypted by WireGuard)
-        let urlString = "ws://\(gatewayHost):\(port)"
+        let scheme = useSSL ? "wss" : "ws"
+        let urlString = "\(scheme)://\(gatewayHost):\(port)"
+
+        print("🔌 Connecting to: \(urlString)")
 
         guard let url = URL(string: urlString) else {
+            print("❌ Invalid gateway URL: \(urlString)")
             connectionState = .failed("Invalid gateway URL")
             return
         }
 
-        let request = URLRequest(url: url)
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 15  // 15 second timeout
         webSocketTask = urlSession.webSocketTask(with: request)
         webSocketTask?.resume()
+        print("🔌 WebSocket task started")
+        print("🔌 Gateway host: \(gatewayHost), port: \(port), SSL: \(useSSL)")
+
+        // Connection timeout - if not connected after 15 seconds, fail
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            guard let self = self else { return }
+            if case .connecting = self.connectionState {
+                print("⏰ Connection timeout - no response from gateway")
+                self.connectionState = .failed("Connection timeout - gateway not reachable")
+                self.webSocketTask?.cancel()
+            }
+        }
     }
 
     func disconnect() {
         pollingTimer?.invalidate()
         pollingTimer = nil
+        messagePollingTimer?.invalidate()
+        messagePollingTimer = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         connectionState = .disconnected
@@ -112,50 +268,363 @@ class GatewayConnection: NSObject, ObservableObject {
         isHandshakeComplete = false
     }
 
+    // MARK: - App Lifecycle (Background/Foreground)
+
+    private var backgroundTaskId: UIBackgroundTaskIdentifier = .invalid
+    private var wasConnectedBeforeBackground = false
+    private var lastActiveTimestamp: Date?
+
+    /// Called when the app is about to enter background
+    /// Requests extended background time for clean disconnection
+    func handleAppWillBackground() {
+        guard connectionState.isConnected else { return }
+
+        wasConnectedBeforeBackground = true
+        lastActiveTimestamp = Date()
+
+        // Request extended background execution time
+        backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "CleanDisconnect") { [weak self] in
+            // Expiration handler - system is about to kill background time
+            print("⏰ Background time expiring, ending task")
+            self?.endBackgroundTask()
+        }
+
+        print("🌙 Background task started (ID: \(backgroundTaskId.rawValue)), keeping connection briefly...")
+
+        // Keep connection alive for a short time to receive any pending messages
+        // Then disconnect gracefully after 25 seconds (iOS gives ~30 seconds)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) { [weak self] in
+            guard let self = self,
+                  UIApplication.shared.applicationState == .background else { return }
+
+            print("🌙 Background time limit approaching, disconnecting gracefully...")
+            self.disconnect()
+            self.endBackgroundTask()
+        }
+    }
+
+    /// Called when app becomes active (returns to foreground)
+    func handleAppDidBecomeActive() {
+        // End any lingering background task
+        endBackgroundTask()
+
+        // If we were connected before going to background, reconnect
+        if wasConnectedBeforeBackground || connectionState == .disconnected {
+            let timeSinceLastActive = lastActiveTimestamp.map { Date().timeIntervalSince($0) } ?? 0
+
+            if connectionState != .connected && connectionState != .connecting {
+                print("☀️ App active, reconnecting... (was inactive for \(Int(timeSinceLastActive))s)")
+                reconnectAttempt = 0  // Reset reconnect counter
+                connect()
+            }
+
+            // Fetch latest messages to catch up on anything missed
+            if connectionState.isConnected {
+                print("☀️ Fetching latest messages after returning to foreground...")
+                fetchSessionsList()
+            }
+        }
+
+        wasConnectedBeforeBackground = false
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTaskId != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTaskId)
+        backgroundTaskId = .invalid
+        print("✅ Background task ended")
+    }
+
+    // MARK: - Message Polling (Fallback)
+
+    /// Start polling for new messages as a fallback when subscriptions don't work
+    private func startMessagePolling() {
+        messagePollingTimer?.invalidate()
+        messagePollingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollForNewMessages()
+            }
+        }
+        print("📡 Started message polling (5s interval)")
+    }
+
+    private func pollForNewMessages() {
+        // Poll all active sessions silently
+        for sessionKey in activePollingSessionKeys {
+            pollSession(sessionKey)
+        }
+    }
+
+    /// Add a session to the polling list
+    func addSessionToPolling(_ sessionKey: String) {
+        activePollingSessionKeys.insert(sessionKey)
+    }
+
+    private func pollSession(_ sessionKey: String) {
+        let params: [String: Any] = [
+            "keys": [sessionKey],
+            "limit": 10
+        ]
+
+        sendRPC(method: "sessions.preview", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            // Parse response - previews can be an ARRAY or a dictionary
+            var sessionPreview: [String: Any]?
+
+            // Try to get previews from result or payload
+            let previewsContainer: Any?
+            if let result = response["result"] as? [String: Any] {
+                previewsContainer = result["previews"]
+            } else if let payload = response["payload"] as? [String: Any] {
+                previewsContainer = payload["previews"]
+            } else {
+                previewsContainer = response["previews"]
+            }
+
+            // Handle array format: [{key: "ios-chat", items: [...]}]
+            if let previewsArray = previewsContainer as? [[String: Any]] {
+                for preview in previewsArray {
+                    if let key = preview["key"] as? String, key == sessionKey {
+                        sessionPreview = preview
+                        break
+                    }
+                }
+            }
+            // Handle dictionary format: {"ios-chat": {messages: [...]}}
+            else if let previewsDict = previewsContainer as? [String: Any] {
+                sessionPreview = previewsDict[sessionKey] as? [String: Any]
+            }
+
+            guard let preview = sessionPreview else { return }
+
+            // Check status
+            let status = preview["status"] as? String ?? "unknown"
+            if status == "empty" { return }
+
+            // Get messages - could be "items" or "messages"
+            let messages: [[String: Any]]
+            if let items = preview["items"] as? [[String: Any]] {
+                messages = items
+            } else if let msgs = preview["messages"] as? [[String: Any]] {
+                messages = msgs
+            } else {
+                return
+            }
+
+            // Check for new messages
+            let currentCount = messages.count
+            let lastCount = self.lastKnownMessageCount[sessionKey] ?? 0
+
+            if currentCount > lastCount || lastCount == 0 {
+                Task { @MainActor in
+                    self.processPolledMessages(messages, sessionKey: sessionKey)
+                    self.lastKnownMessageCount[sessionKey] = currentCount
+                }
+            }
+        }
+    }
+
+    private func processPolledMessages(_ messages: [[String: Any]], sessionKey: String) {
+        let existingMessages = conversations[sessionKey]?.messages ?? []
+        let existingContent = Set(existingMessages.map { $0.content })
+
+        for msg in messages {
+            let role = msg["role"] as? String ?? "unknown"
+            guard role == "assistant" else { continue }
+
+            // Extract text content
+            var fullText = ""
+            if let content = msg["content"] as? [[String: Any]] {
+                for item in content {
+                    if let text = item["text"] as? String {
+                        fullText += text
+                    }
+                }
+            } else if let content = msg["content"] as? String {
+                fullText = content
+            }
+
+            // Skip empty or duplicate messages
+            if fullText.isEmpty || existingContent.contains(fullText) {
+                continue
+            }
+
+            print("💬 New message received")
+            addAgentResponseToUI(fullText, sessionKey: sessionKey)
+        }
+    }
+
     // MARK: - Connect Handshake
 
     private func handleConnectChallenge(nonce: String) {
         self.connectNonce = nonce
-        sendConnectRequest()
+        // Small delay to ensure WebSocket is fully ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            self?.sendConnectRequest()
+        }
     }
 
     private func sendConnectRequest() {
-        let params: [String: Any] = [
-            "minProtocol": 1,
-            "maxProtocol": 1,
+        // Only send connect once
+        guard !connectRequestSent else {
+            print("⚠️ Connect already sent, skipping")
+            return
+        }
+        connectRequestSent = true
+
+        // Build connect params
+        var params: [String: Any] = [
+            "minProtocol": 3,
+            "maxProtocol": 3,
             "client": [
-                "id": "ios-node",
+                "id": "openclaw-ios",
                 "displayName": deviceIdentity.displayName,
                 "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
                 "platform": "ios",
-                "deviceFamily": UIDevice.current.model,
-                "modelIdentifier": UIDevice.current.modelIdentifier,
                 "mode": "node"
             ],
-            "role": "node",
-            "caps": ["chat", "location"],
-            "commands": ["location.get"]
+            "role": "operator"
         ]
+
+        // Use token auth if we have a token (from QR code or saved device token)
+        if !gatewayToken.isEmpty {
+            params["auth"] = ["token": gatewayToken]
+            let tokenPreview = String(gatewayToken.prefix(8)) + "..." + String(gatewayToken.suffix(4))
+            print("🔑 Using token authentication: \(tokenPreview)")
+            print("🔑 Full token length: \(gatewayToken.count) chars")
+        } else {
+            print("⚠️ No token available, falling back to device signature")
+            // Fallback to device signature auth if no token
+            do {
+                try DeviceIdentityManager.shared.generateKeyPair()
+                let deviceId = try DeviceIdentityManager.shared.getDeviceId()
+                let publicKey = try DeviceIdentityManager.shared.getPublicKeyBase64Url()
+                let signedAtMs = Int(Date().timeIntervalSince1970 * 1000)
+
+                let payload = DeviceIdentityManager.shared.buildDeviceAuthPayload(
+                    deviceId: deviceId,
+                    clientId: "openclaw-ios",
+                    clientMode: "node",
+                    role: "operator",
+                    scopes: [],
+                    signedAtMs: signedAtMs,
+                    token: nil,
+                    nonce: connectNonce
+                )
+
+                let signature = try DeviceIdentityManager.shared.signPayload(payload)
+
+                params["device"] = [
+                    "id": deviceId,
+                    "publicKey": publicKey,
+                    "signature": signature,
+                    "signedAt": signedAtMs,
+                    "nonce": connectNonce ?? ""
+                ]
+                print("🔐 Using device signature authentication")
+            } catch {
+                print("❌ Failed to create device signature: \(error)")
+            }
+        }
+
+        print("📤 Sending connect request...")
 
         sendRPC(method: "connect", params: params) { [weak self] response in
             guard let self = self else { return }
 
-            if let _ = response["result"] as? [String: Any] {
-                Task { @MainActor in
-                    print("Connect handshake complete")
-                    self.isHandshakeComplete = true
+            // Debug: print full response
+            print("📥 Connect response received:")
+            if let data = try? JSONSerialization.data(withJSONObject: response, options: .prettyPrinted),
+               let str = String(data: data, encoding: .utf8) {
+                print(str)
+            }
 
-                    // Now proceed with pairing or verification
-                    if case .paired(let token) = self.pairingState {
-                        self.verifyPairing(token: token)
+            // Check for hello-ok success response
+            let responseType = response["type"] as? String
+            let isOk = response["ok"] as? Bool ?? false
+
+            // Also check inside "result" object (OpenClaw may wrap responses)
+            let result = response["result"] as? [String: Any]
+            let resultOk = result?["ok"] as? Bool ?? false
+
+            print("📊 Response check: type=\(responseType ?? "nil"), ok=\(isOk), resultOk=\(resultOk)")
+
+            if responseType == "hello-ok" || isOk || resultOk {
+                // Extract device token - check both top-level and inside result
+                let auth = (response["auth"] as? [String: Any]) ?? (result?["auth"] as? [String: Any])
+                let deviceToken = auth?["deviceToken"] as? String
+
+                Task { @MainActor in
+                    print("🔄 Setting connection state to CONNECTED")
+                    self.isHandshakeComplete = true
+                    self.connectionState = .connected
+
+                    // Use deviceToken from response, or fall back to current gatewayToken
+                    let tokenToSave = deviceToken ?? self.gatewayToken
+
+                    if !tokenToSave.isEmpty {
+                        if deviceToken != nil {
+                            print("🎉 Connected! Device token from response: \(String(tokenToSave.prefix(8)))...")
+                        } else {
+                            print("✅ Connected! Saving current token: \(String(tokenToSave.prefix(8)))...")
+                        }
+
+                        print("🔄 Setting pairing state to PAIRED")
+                        self.pairingState = .paired(token: tokenToSave)
+                        self.gatewayToken = tokenToSave
+
+                        // Store the token to keychain
+                        let keychainAccount = "openclaw-\(self.deviceIdentity.nodeId)"
+                        let saved = KeychainHelper.saveString(
+                            tokenToSave,
+                            service: self.keychainService,
+                            account: keychainAccount
+                        )
+                        print("💾 Saved token to keychain (\(keychainAccount)): \(saved)")
+
+                        // Also save gateway config
+                        self.saveGatewayConfig()
+                        print("💾 Saved gateway config")
                     } else {
-                        self.requestPairing()
+                        print("⚠️ Connected but no token to save - setting paired anyway")
+                        self.pairingState = .paired(token: "")
                     }
+
+                    print("✅ State update complete - pairingState: \(self.pairingState)")
+
+                    // Subscribe to events, fetch history, sessions, start polling, register push token
+                    self.subscribeToEvents()
+                    self.fetchChatHistory()
+                    self.fetchSessionsList()
+                    self.startMessagePolling()
+                    self.registerPendingPushToken()
                 }
             } else if let error = response["error"] as? [String: Any] {
+                let code = error["code"] as? String
                 let message = error["message"] as? String ?? "Connect failed"
-                Task { @MainActor in
-                    self.connectionState = .failed(message)
+
+                if code == "NOT_PAIRED" {
+                    // Extract requestId and send pairing request
+                    if let details = error["details"] as? [String: Any],
+                       let requestId = details["requestId"] as? String {
+                        print("⚠️ Not paired. Request ID: \(requestId)")
+                        Task { @MainActor in
+                            self.isHandshakeComplete = true
+                            self.sendNodePairingRequest(requestId: requestId)
+                        }
+                    } else {
+                        // No requestId, just request pairing normally
+                        Task { @MainActor in
+                            self.isHandshakeComplete = true
+                            self.requestPairing()
+                        }
+                    }
+                } else {
+                    Task { @MainActor in
+                        print("❌ Connect error: \(message)")
+                        self.connectionState = .failed(message)
+                    }
                 }
             }
         }
@@ -163,39 +632,35 @@ class GatewayConnection: NSObject, ObservableObject {
 
     // MARK: - Pairing
 
-    private func requestPairing() {
-        guard isHandshakeComplete else {
-            print("Waiting for connect handshake before pairing")
-            return
-        }
+    private func sendNodePairingRequest(requestId: String) {
+        print("📤 Sending node.pair.request with requestId: \(requestId)")
 
         let params: [String: Any] = [
-            "nodeId": deviceIdentity.nodeId,
-            "displayName": deviceIdentity.displayName,
-            "platform": "ios",
-            "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
-            "deviceFamily": UIDevice.current.model,
-            "modelIdentifier": UIDevice.current.modelIdentifier,
-            "caps": ["chat", "location"],
-            "commands": ["location.get"]
+            "requestId": requestId,
+            "displayName": UIDevice.current.name,
+            "note": "iOS app pairing request"
         ]
 
         sendRPC(method: "node.pair.request", params: params) { [weak self] response in
             guard let self = self else { return }
 
-            if let result = response["result"] as? [String: Any],
-               let status = result["status"] as? String {
+            if let result = response["result"] as? [String: Any] {
+                let status = result["status"] as? String ?? "unknown"
+                print("✅ Pairing request status: \(status)")
+
                 if status == "pending" {
                     let code = result["code"] as? String ?? ""
-                    let requestId = result["requestId"] as? String ?? ""
                     Task { @MainActor in
-                        print("Pairing request sent, code: \(code)")
+                        print("⏳ Waiting for approval on Mac...")
+                        print("   Run: openclaw nodes pending")
+                        print("   Then: openclaw nodes approve \(requestId)")
                         self.pairingState = .pendingApproval(code: code, requestId: requestId)
                         self.startPollingForApproval()
                     }
                 }
             } else if let error = response["error"] as? [String: Any] {
-                let message = error["message"] as? String ?? "Unknown error"
+                let message = error["message"] as? String ?? "Pairing failed"
+                print("❌ Pairing error: \(message)")
                 Task { @MainActor in
                     self.pairingState = .failed(message)
                 }
@@ -203,10 +668,61 @@ class GatewayConnection: NSObject, ObservableObject {
         }
     }
 
+    private func requestPairing() {
+        guard isHandshakeComplete else {
+            print("Waiting for connect handshake before pairing")
+            return
+        }
+
+        do {
+            let deviceId = try DeviceIdentityManager.shared.getDeviceId()
+
+            let params: [String: Any] = [
+                "nodeId": deviceId,
+                "displayName": deviceIdentity.displayName,
+                "platform": "ios",
+                "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+                "deviceFamily": UIDevice.current.model,
+                "modelIdentifier": UIDevice.current.modelIdentifier,
+                "caps": ["chat", "location"],
+                "commands": ["location.get"]
+            ]
+
+            sendRPC(method: "node.pair.request", params: params) { [weak self] response in
+                guard let self = self else { return }
+
+                if let result = response["result"] as? [String: Any],
+                   let status = result["status"] as? String {
+                    if status == "pending" {
+                        let code = result["code"] as? String ?? ""
+                        let requestId = result["requestId"] as? String ?? ""
+                        Task { @MainActor in
+                            print("✅ Pairing request sent, code: \(code)")
+                            print("⏳ Waiting for approval on Mac...")
+                            print("   Run: openclaw nodes pending")
+                            print("   Then: openclaw nodes approve \(requestId)")
+                            self.pairingState = .pendingApproval(code: code, requestId: requestId)
+                            self.startPollingForApproval()
+                        }
+                    }
+                } else if let error = response["error"] as? [String: Any] {
+                    let message = error["message"] as? String ?? "Unknown error"
+                    Task { @MainActor in
+                        self.pairingState = .failed(message)
+                    }
+                }
+            }
+        } catch {
+            print("❌ Failed to get device ID: \(error)")
+        }
+    }
+
     private func startPollingForApproval() {
         pollingTimer?.invalidate()
         pollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
-            self?.pollForApproval()
+            Task { @MainActor in
+                self?.pollForApproval()
+            }
         }
     }
 
@@ -286,14 +802,48 @@ class GatewayConnection: NSObject, ObservableObject {
     }
 
     func resetPairing() {
+        print("🗑️ Resetting all credentials and device identity...")
+
+        // Stop any active operations
         pollingTimer?.invalidate()
         pollingTimer = nil
-        KeychainHelper.delete(service: keychainService, account: "openclaw-\(deviceIdentity.nodeId)")
-        deviceIdentity.pairingToken = nil
-        deviceIdentity.pairedAt = nil
-        saveDeviceIdentity()
-        pairingState = .unpaired
         disconnect()
+
+        // Clear device token from Keychain
+        KeychainHelper.delete(service: keychainService, account: "openclaw-\(deviceIdentity.nodeId)")
+        print("  ✓ Cleared device token")
+
+        // Delete Ed25519 key pair (will regenerate on next connect)
+        DeviceIdentityManager.shared.deleteKeyPair()
+        print("  ✓ Deleted Ed25519 key pair")
+
+        // Clear device identity from UserDefaults
+        UserDefaults.standard.removeObject(forKey: DeviceIdentity.storageKey)
+        print("  ✓ Cleared device identity")
+
+        // Clear saved gateway config
+        UserDefaults.standard.removeObject(forKey: gatewayConfigKey)
+        print("  ✓ Cleared gateway config")
+
+        // Clear saved conversations
+        UserDefaults.standard.removeObject(forKey: conversationsStorageKey)
+        conversations = [:]
+        print("  ✓ Cleared conversation history")
+
+        // Synchronize UserDefaults
+        UserDefaults.standard.synchronize()
+
+        // Create fresh device identity
+        deviceIdentity = Self.loadOrCreateDeviceIdentity()
+        print("  ✓ Created new device identity: \(deviceIdentity.nodeId)")
+
+        // Reset state
+        pairingState = .unpaired
+        connectionState = .disconnected
+        verificationCode = nil
+        gatewayToken = ""
+
+        print("✅ Reset complete. Ready to pair as new device.")
     }
 
     // MARK: - RPC
@@ -301,8 +851,9 @@ class GatewayConnection: NSObject, ObservableObject {
     private func sendRPC(method: String, params: [String: Any], completion: @escaping ([String: Any]) -> Void) {
         let requestId = UUID().uuidString
 
+        // OpenClaw frame format (not JSON-RPC)
         let message: [String: Any] = [
-            "jsonrpc": "2.0",
+            "type": "req",
             "id": requestId,
             "method": method,
             "params": params
@@ -310,7 +861,15 @@ class GatewayConnection: NSObject, ObservableObject {
 
         guard let data = try? JSONSerialization.data(withJSONObject: message),
               let jsonString = String(data: data, encoding: .utf8) else {
+            print("❌ Failed to serialize RPC message")
             return
+        }
+
+        // Debug: print what we're sending
+        if let prettyData = try? JSONSerialization.data(withJSONObject: message, options: .prettyPrinted),
+           let prettyString = String(data: prettyData, encoding: .utf8) {
+            print("📤 Sending RPC [\(method)]:")
+            print(prettyString)
         }
 
         responseHandlers[requestId] = completion
@@ -318,11 +877,13 @@ class GatewayConnection: NSObject, ObservableObject {
         let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
         webSocketTask?.send(wsMessage) { error in
             if let error = error {
-                print("WebSocket send error: \(error)")
+                print("❌ WebSocket send error: \(error)")
                 Task { @MainActor in
                     self.responseHandlers.removeValue(forKey: requestId)
                     completion(["error": ["message": error.localizedDescription]])
                 }
+            } else {
+                print("✅ RPC sent successfully")
             }
         }
 
@@ -334,57 +895,493 @@ class GatewayConnection: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Push Notifications
+
+    private var registeredPushToken: String?
+
+    /// Register APNs device token with the gateway server
+    func registerPushToken(_ token: String) {
+        // Don't re-register the same token
+        guard token != registeredPushToken else {
+            print("📱 Push token already registered")
+            return
+        }
+
+        // Wait for connection if not connected yet
+        guard connectionState.isConnected else {
+            print("📱 Saving push token for later registration (not connected)")
+            // Token will be registered when connection is established
+            // Store it temporarily
+            UserDefaults.standard.set(token, forKey: "pendingPushToken")
+            return
+        }
+
+        let params: [String: Any] = [
+            "nodeId": deviceIdentity.nodeId,
+            "platform": "ios",
+            "token": token,
+            "bundleId": Bundle.main.bundleIdentifier ?? "com.laert.bartapp"
+        ]
+
+        print("📱 Registering push token with gateway...")
+
+        sendRPC(method: "node.registerPushToken", params: params) { [weak self] response in
+            if let error = response["error"] as? [String: Any] {
+                let message = error["message"] as? String ?? "Unknown error"
+                print("❌ Push token registration failed: \(message)")
+            } else {
+                print("✅ Push token registered successfully")
+                self?.registeredPushToken = token
+                UserDefaults.standard.removeObject(forKey: "pendingPushToken")
+            }
+        }
+    }
+
+    /// Called after successful connection to register any pending push token
+    private func registerPendingPushToken() {
+        // Check for pending token
+        if let pendingToken = UserDefaults.standard.string(forKey: "pendingPushToken") {
+            print("📱 Registering pending push token...")
+            registerPushToken(pendingToken)
+        }
+        // Also check for stored APNs token
+        else if let storedToken = UserDefaults.standard.string(forKey: "apnsDeviceToken"),
+                storedToken != registeredPushToken {
+            print("📱 Re-registering stored push token...")
+            registerPushToken(storedToken)
+        }
+    }
+
     // MARK: - Chat
 
     func sendMessage(_ text: String, sessionKey: String? = nil) async throws {
-        guard case .paired(let token) = pairingState else {
-            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not paired"])
-        }
-
-        guard isHandshakeComplete else {
+        guard connectionState == .connected else {
             throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
         }
 
         let agentId = currentAgent?.id ?? "main"
-        let key = sessionKey ?? "agent:\(agentId):ios-node:dm:\(deviceIdentity.nodeId)"
+        let key = sessionKey ?? "agent:\(agentId):node:dm:\(deviceIdentity.nodeId)"
+        let messageId = UUID().uuidString
 
-        // Add user message to conversation
+        // Add user message to conversation with sending status
         let userMessage = Message(
-            id: UUID().uuidString,
+            id: messageId,
             conversationId: key,
             role: .user,
             content: text,
             timestamp: Date(),
             isStreaming: false,
             toolCalls: nil,
-            location: nil
+            location: nil,
+            deliveryStatus: .sending
         )
         addMessageToConversation(userMessage, sessionKey: key)
 
+        // Use chat.send for direct agent chat
         let params: [String: Any] = [
-            "auth": [
-                "nodeId": deviceIdentity.nodeId,
-                "token": token
-            ],
-            "agentId": agentId,
             "sessionKey": key,
-            "content": [
-                ["type": "text", "text": text]
-            ]
+            "message": text,
+            "idempotencyKey": messageId
         ]
 
+        print("💬 [Send] Sending to sessionKey: \(key)")
+        print("💬 [Send] Message: \(text.prefix(50))...")
+
+        // Ensure we're polling this session for responses
+        addSessionToPolling(key)
+
         return try await withCheckedThrowingContinuation { continuation in
-            sendRPC(method: "sessions.send", params: params) { response in
-                if let error = response["error"] as? [String: Any] {
-                    let message = error["message"] as? String ?? "Unknown error"
-                    continuation.resume(throwing: NSError(
-                        domain: "Gateway",
-                        code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: message]
-                    ))
-                } else {
-                    continuation.resume()
+            sendRPC(method: "chat.send", params: params) { [weak self] response in
+                guard let self = self else { return }
+
+                Task { @MainActor in
+                    if let error = response["error"] as? [String: Any] {
+                        let message = error["message"] as? String ?? "Unknown error"
+                        print("❌ Message send error: \(message)")
+                        // Update to failed
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .failed)
+                        continuation.resume(throwing: NSError(
+                            domain: "Gateway",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: message]
+                        ))
+                    } else {
+                        print("✅ Message sent successfully")
+                        // Update to delivered
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .delivered)
+                        continuation.resume()
+                    }
                 }
+            }
+        }
+    }
+
+    /// Updates the delivery status of a message
+    private func updateMessageDeliveryStatus(messageId: String, sessionKey: String, status: MessageDeliveryStatus) {
+        guard var conversation = conversations[sessionKey],
+              let index = conversation.messages.firstIndex(where: { $0.id == messageId }) else {
+            return
+        }
+        conversation.messages[index].deliveryStatus = status
+        conversation.updatedAt = Date()
+        conversations[sessionKey] = conversation
+        saveConversations()
+    }
+
+    /// Sends an attachment (image or file) to the chat
+    func sendAttachment(_ attachment: AttachmentItem, sessionKey: String? = nil) async throws {
+        guard connectionState == .connected else {
+            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
+        }
+
+        let agentId = currentAgent?.id ?? "main"
+        let key = sessionKey ?? "agent:\(agentId):node:dm:\(deviceIdentity.nodeId)"
+        let messageId = UUID().uuidString
+
+        // Create a message content that describes the attachment
+        let base64Data = attachment.data.base64EncodedString()
+        let attachmentInfo: [String: Any] = [
+            "type": "attachment",
+            "filename": attachment.filename,
+            "mimeType": attachment.mimeType,
+            "size": attachment.data.count,
+            "data": base64Data
+        ]
+
+        // Create display content for the local message
+        let displayContent: String
+        switch attachment.type {
+        case .image:
+            displayContent = "[Image: \(attachment.filename)]"
+        case .file:
+            displayContent = "[File: \(attachment.filename)]"
+        }
+
+        // Add user message to conversation with sending status
+        var userMessage = Message(
+            id: messageId,
+            conversationId: key,
+            role: .user,
+            content: displayContent,
+            timestamp: Date(),
+            isStreaming: false,
+            toolCalls: nil,
+            location: nil,
+            deliveryStatus: .sending
+        )
+        userMessage.attachmentData = attachment.data
+        userMessage.attachmentFilename = attachment.filename
+        userMessage.attachmentMimeType = attachment.mimeType
+        addMessageToConversation(userMessage, sessionKey: key)
+
+        // Send via RPC
+        let params: [String: Any] = [
+            "sessionKey": key,
+            "attachment": attachmentInfo,
+            "idempotencyKey": messageId
+        ]
+
+        print("📎 [Send] Sending attachment: \(attachment.filename) (\(attachment.data.count) bytes)")
+
+        // Ensure we're polling this session for responses
+        addSessionToPolling(key)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            sendRPC(method: "chat.sendAttachment", params: params) { [weak self] response in
+                guard let self = self else { return }
+
+                Task { @MainActor in
+                    if let error = response["error"] as? [String: Any] {
+                        let message = error["message"] as? String ?? "Unknown error"
+                        print("❌ Attachment send error: \(message)")
+                        // Update to failed
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .failed)
+                        continuation.resume(throwing: NSError(
+                            domain: "Gateway",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: message]
+                        ))
+                    } else {
+                        print("✅ Attachment sent successfully")
+                        // Update to delivered
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .delivered)
+                        continuation.resume()
+                    }
+                }
+            }
+        }
+    }
+
+    // Subscribe to events - currently not supported by this gateway, relying on polling
+    private func subscribeToEvents() {
+        print("📡 Real-time subscriptions not supported, using polling fallback")
+        // Add the default session to polling
+        let defaultSession = "agent:main:node:dm:\(deviceIdentity.nodeId)"
+        addSessionToPolling(defaultSession)
+    }
+
+    /// Subscribe to a specific session (currently just adds to polling)
+    func subscribeToSession(_ sessionKey: String) {
+        addSessionToPolling(sessionKey)
+    }
+
+    // Send a test message after successful connection
+    func sendTestMessage() {
+        // Use proper session key format
+        let sessionKey = "agent:main:node:dm:\(deviceIdentity.nodeId)"
+
+        let params: [String: Any] = [
+            "sessionKey": sessionKey,
+            "message": "Hello from my iPhone app!",
+            "idempotencyKey": UUID().uuidString
+        ]
+
+        print("📤 Sending test message to sessionKey: \(sessionKey)")
+
+        // Add this session to polling
+        addSessionToPolling(sessionKey)
+
+        sendRPC(method: "chat.send", params: params) { response in
+            if let ok = response["ok"] as? Bool, ok {
+                print("✅ Test message sent!")
+            } else if let error = response["error"] as? [String: Any] {
+                let msg = error["message"] as? String ?? "Unknown error"
+                print("❌ Test message error: \(msg)")
+            } else {
+                print("📥 Response: \(response)")
+            }
+        }
+    }
+
+    // Fetch chat history for debugging
+    func fetchChatHistory() {
+        let params: [String: Any] = [
+            "sessionKey": "ios-chat",
+            "limit": 10
+        ]
+
+        print("📜 Fetching chat history...")
+
+        sendRPC(method: "chat.history", params: params) { response in
+            if let result = response["result"] as? [String: Any] {
+                print("📜 Chat history:")
+                if let data = try? JSONSerialization.data(withJSONObject: result, options: .prettyPrinted),
+                   let str = String(data: data, encoding: .utf8) {
+                    print(str)
+                }
+            } else if let error = response["error"] as? [String: Any] {
+                let msg = error["message"] as? String ?? "Unknown error"
+                print("❌ History error: \(msg)")
+            }
+        }
+    }
+
+    // MARK: - Sessions List
+
+    /// Fetches all sessions from the gateway including subagents
+    func fetchSessionsList() {
+        let params: [String: Any] = [
+            "limit": 50
+        ]
+
+        print("📋 [Sessions] Fetching sessions list...")
+
+        sendRPC(method: "sessions.list", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            print("📋 [Sessions] Response received")
+
+            // Debug log
+            if let data = try? JSONSerialization.data(withJSONObject: response, options: .prettyPrinted),
+               let str = String(data: data, encoding: .utf8) {
+                print("📋 Sessions list response:")
+                print(str.prefix(1000))
+            }
+
+            // Parse response - could be in result or payload
+            let sessions: [[String: Any]]
+            if let result = response["result"] as? [String: Any],
+               let s = result["sessions"] as? [[String: Any]] {
+                sessions = s
+            } else if let payload = response["payload"] as? [String: Any],
+                      let s = payload["sessions"] as? [[String: Any]] {
+                sessions = s
+            } else if let s = response["sessions"] as? [[String: Any]] {
+                sessions = s
+            } else {
+                print("⚠️ Could not parse sessions list response")
+                return
+            }
+
+            Task { @MainActor in
+                print("📋 [Sessions] Parsing \(sessions.count) sessions...")
+
+                // Log all session keys and add them ALL to polling
+                for sessionData in sessions {
+                    if let key = sessionData["key"] as? String {
+                        let msgCount = (sessionData["messages"] as? [[String: Any]])?.count ?? 0
+                        let status = sessionData["status"] as? String ?? "unknown"
+                        print("📋 [Sessions] Found: \(key) (msgs: \(msgCount), status: \(status))")
+                        // Add ALL sessions to polling
+                        self.addSessionToPolling(key)
+                    }
+                }
+
+                self.activeSessions = sessions.compactMap { sessionData -> SessionInfo? in
+                    guard let key = sessionData["key"] as? String,
+                          let sessionId = sessionData["sessionId"] as? String else {
+                        return nil
+                    }
+
+                    let label = sessionData["label"] as? String
+                    let displayName = sessionData["displayName"] as? String
+                    let updatedAt = sessionData["updatedAt"] as? Int64 ?? 0
+                    let model = sessionData["model"] as? String
+                    let totalTokens = sessionData["totalTokens"] as? Int
+                    let topic = sessionData["topic"] as? String
+                    let participantName = sessionData["participantName"] as? String
+                    let messageCount = (sessionData["messages"] as? [[String: Any]])?.count ?? 0
+
+                    // Parse category from session key or metadata
+                    let category = SessionInfo.parseCategory(from: key, metadata: sessionData)
+                    let isSubagent = category == .subagent
+
+                    // Determine friendly name
+                    let friendlyName: String
+                    if let lbl = label, !lbl.isEmpty {
+                        friendlyName = lbl
+                    } else if let dn = displayName, !dn.isEmpty {
+                        friendlyName = dn
+                    } else if let participant = participantName, !participant.isEmpty {
+                        friendlyName = participant
+                    } else if isSubagent {
+                        // Extract subagent ID from key
+                        friendlyName = String(key.components(separatedBy: ":subagent:").last?.prefix(8) ?? "")
+                    } else {
+                        friendlyName = category.displayName
+                    }
+
+                    return SessionInfo(
+                        id: sessionId,
+                        sessionKey: key,
+                        label: friendlyName,
+                        isMain: !isSubagent && (key == "ios-chat" || key.contains(":dm:")),
+                        isActive: true,
+                        lastActivity: Date(timeIntervalSince1970: TimeInterval(updatedAt) / 1000),
+                        unreadCount: 0,
+                        model: model,
+                        totalTokens: totalTokens,
+                        category: category,
+                        topic: topic,
+                        messageCount: messageCount,
+                        participantName: participantName
+                    )
+                }
+
+                print("📋 [Sessions] Loaded \(self.activeSessions.count) sessions, polling: \(self.activePollingSessionKeys)")
+
+                // Also update subAgents list from sessions that contain :subagent:
+                let subagentSessions = self.activeSessions.filter { $0.sessionKey.contains(":subagent:") }
+                print("📋 Found \(subagentSessions.count) subagent sessions")
+            }
+        }
+    }
+
+    /// Fetches message history for a specific session
+    func fetchSessionHistory(sessionKey: String, completion: @escaping ([Message]) -> Void) {
+        let params: [String: Any] = [
+            "sessionKey": sessionKey,
+            "limit": 50
+        ]
+
+        print("📜 Fetching history for session: \(sessionKey)")
+
+        sendRPC(method: "sessions.history", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            var messages: [Message] = []
+
+            // Parse response
+            let rawMessages: [[String: Any]]
+            if let result = response["result"] as? [String: Any],
+               let m = result["messages"] as? [[String: Any]] {
+                rawMessages = m
+            } else if let payload = response["payload"] as? [String: Any],
+                      let m = payload["messages"] as? [[String: Any]] {
+                rawMessages = m
+            } else if let m = response["messages"] as? [[String: Any]] {
+                rawMessages = m
+            } else {
+                print("⚠️ Could not parse session history response")
+                completion([])
+                return
+            }
+
+            for msgData in rawMessages {
+                guard let roleStr = msgData["role"] as? String else { continue }
+
+                let role: MessageRole = roleStr == "user" ? .user : .assistant
+                var content = ""
+
+                // Extract text content
+                if let contentArray = msgData["content"] as? [[String: Any]] {
+                    for item in contentArray {
+                        if let text = item["text"] as? String {
+                            content += text
+                        }
+                    }
+                } else if let contentStr = msgData["content"] as? String {
+                    content = contentStr
+                }
+
+                if !content.isEmpty {
+                    let messageId = msgData["id"] as? String ?? UUID().uuidString
+                    let timestamp: Date
+                    if let ts = msgData["timestamp"] as? Int64 {
+                        timestamp = Date(timeIntervalSince1970: TimeInterval(ts) / 1000)
+                    } else {
+                        timestamp = Date()
+                    }
+
+                    let message = Message(
+                        id: messageId,
+                        conversationId: sessionKey,
+                        role: role,
+                        content: content,
+                        timestamp: timestamp,
+                        isStreaming: false,
+                        toolCalls: nil,
+                        location: nil,
+                        deliveryStatus: .delivered
+                    )
+                    messages.append(message)
+                }
+            }
+
+            // Sort by timestamp
+            messages.sort { $0.timestamp < $1.timestamp }
+
+            Task { @MainActor in
+                // Update conversation with fetched messages
+                if !messages.isEmpty {
+                    var conversation = self.conversations[sessionKey] ?? Conversation(
+                        id: sessionKey,
+                        sessionKey: sessionKey,
+                        agentId: self.currentAgent?.id ?? "main",
+                        label: nil,
+                        isSubAgent: sessionKey.contains(":subagent:"),
+                        parentSessionKey: nil,
+                        messages: [],
+                        createdAt: Date(),
+                        updatedAt: Date(),
+                        status: .active
+                    )
+                    conversation.messages = messages
+                    conversation.updatedAt = Date()
+                    self.conversations[sessionKey] = conversation
+                    self.saveConversations()
+                }
+                completion(messages)
             }
         }
     }
@@ -462,18 +1459,37 @@ class GatewayConnection: NSObject, ObservableObject {
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         let data: Data
         switch message {
-        case .data(let d): data = d
-        case .string(let s): data = s.data(using: .utf8) ?? Data()
-        @unknown default: return
+        case .data(let d):
+            data = d
+        case .string(let s):
+            data = s.data(using: .utf8) ?? Data()
+        @unknown default:
+            return
         }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
 
-        // Handle EVENTS (type: "event")
+        // Handle EVENTS - multiple formats
+        // Format 1: type: "event", event: "chat"
         if let type = json["type"] as? String, type == "event",
            let event = json["event"] as? String {
+            handleEvent(event: event, message: json)
+            return
+        }
+
+        // Format 2: type: "chat" (event type directly in type field)
+        if let type = json["type"] as? String,
+           ["chat", "agent", "sessions.spawn", "sessions.announce", "subagent.spawn", "subagent.announce"].contains(type) {
+            print("📨 [Event] type=\(type) (direct)")
+            handleEvent(event: type, message: json)
+            return
+        }
+
+        // Format 3: event field at top level without type
+        if let event = json["event"] as? String {
+            print("📨 [Event] event=\(event) (no type wrapper)")
             handleEvent(event: event, message: json)
             return
         }
@@ -492,16 +1508,281 @@ class GatewayConnection: NSObject, ObservableObject {
     }
 
     private func handleEvent(event: String, message: [String: Any]) {
+        // Payload can be in different places depending on format
+        let payload: [String: Any]
+        if let p = message["payload"] as? [String: Any] {
+            payload = p
+        } else if let p = message["data"] as? [String: Any] {
+            payload = p
+        } else {
+            // Payload might be the message itself (minus type/event fields)
+            var p = message
+            p.removeValue(forKey: "type")
+            p.removeValue(forKey: "event")
+            p.removeValue(forKey: "id")
+            payload = p
+        }
+
+        if payload.isEmpty {
+            print("⚠️ Event \(event) has empty/no payload")
+            return
+        }
+
         switch event {
         case "connect.challenge":
-            if let payload = message["payload"] as? [String: Any],
-               let nonce = payload["nonce"] as? String {
+            if let nonce = payload["nonce"] as? String {
                 print("Received connect.challenge with nonce")
                 handleConnectChallenge(nonce: nonce)
             }
 
+        case "chat":
+            handleChatEvent(payload)
+
+        case "agent":
+            // Agent lifecycle events (optional logging)
+            if let stream = payload["stream"] as? String {
+                print("🤖 Agent stream: \(stream)")
+            }
+
+        case "sessions.spawn", "subagent.spawn":
+            handleSubagentSpawn(payload)
+
+        case "sessions.announce", "subagent.announce":
+            handleSubagentAnnounce(payload)
+
+        case "health", "tick":
+            // Heartbeat events - connection is healthy
+            break
+
         default:
-            print("Unhandled event: \(event)")
+            print("📨 Unhandled event: \(event)")
+        }
+    }
+
+    private func handleChatEvent(_ payload: [String: Any]) {
+        guard let state = payload["state"] as? String,
+              let sessionKey = payload["sessionKey"] as? String else {
+            print("⚠️ [Chat] Invalid chat event - missing state or sessionKey")
+            if let data = try? JSONSerialization.data(withJSONObject: payload, options: .prettyPrinted),
+               let str = String(data: data, encoding: .utf8) {
+                print("   Payload: \(str.prefix(300))")
+            }
+            return
+        }
+
+        print("💬 [Chat] Event: state=\(state), sessionKey=\(sessionKey)")
+
+        // Log delta content if present
+        if state == "delta", let delta = payload["delta"] as? [String: Any] {
+            let text = delta["text"] as? String ?? ""
+            print("   Delta text: \(text.prefix(100))...")
+        }
+
+        switch state {
+        case "start", "thinking":
+            // Bot started processing - show typing indicator
+            Task { @MainActor in
+                self.isBotTyping[sessionKey] = true
+            }
+
+        case "delta":
+            // Streaming update - append text to streaming message
+            if let delta = payload["delta"] as? [String: Any],
+               let text = delta["text"] as? String {
+                Task { @MainActor in
+                    self.appendToStreamingMessage(text, sessionKey: sessionKey)
+                }
+            }
+
+        case "final":
+            // Response complete
+            Task { @MainActor in
+                self.isBotTyping[sessionKey] = false
+                self.finalizeStreamingMessage(sessionKey: sessionKey)
+            }
+
+            // Check if message content is in the payload
+            if let message = payload["message"] as? [String: Any],
+               let content = message["content"] as? [[String: Any]] {
+
+                var fullText = ""
+                for item in content {
+                    if let text = item["text"] as? String {
+                        fullText += text
+                    }
+                }
+
+                if !fullText.isEmpty {
+                    // Only add if we don't already have a streaming message with this content
+                    if streamingMessageIds[sessionKey] == nil {
+                        print("💬 Agent response (inline): \(fullText.prefix(100))...")
+                        addAgentResponseToUI(fullText, sessionKey: sessionKey)
+                    }
+                }
+            } else if streamingMessageIds[sessionKey] == nil {
+                // No streaming message and no inline content - fetch via sessions.preview
+                print("💬 Final event received, fetching message via sessions.preview...")
+                if let runId = payload["runId"] as? String {
+                    fetchLatestMessage(sessionKey: sessionKey, runId: runId)
+                }
+            }
+
+        case "error":
+            Task { @MainActor in
+                self.isBotTyping[sessionKey] = false
+                self.finalizeStreamingMessage(sessionKey: sessionKey)
+            }
+            if let error = payload["error"] as? [String: Any],
+               let errorMsg = error["message"] as? String {
+                print("❌ Chat error: \(errorMsg)")
+            }
+
+        default:
+            print("📨 Unknown chat state: \(state)")
+        }
+    }
+
+    private func appendToStreamingMessage(_ text: String, sessionKey: String) {
+        if let existingId = streamingMessageIds[sessionKey] {
+            // Append to existing streaming message
+            if var conversation = conversations[sessionKey],
+               let index = conversation.messages.firstIndex(where: { $0.id == existingId }) {
+                conversation.messages[index].content += text
+                conversation.updatedAt = Date()
+                conversations[sessionKey] = conversation
+            }
+        } else {
+            // Create new streaming message
+            let messageId = UUID().uuidString
+            streamingMessageIds[sessionKey] = messageId
+
+            let streamingMessage = Message(
+                id: messageId,
+                conversationId: sessionKey,
+                role: .assistant,
+                content: text,
+                timestamp: Date(),
+                isStreaming: true,
+                toolCalls: nil,
+                location: nil,
+                deliveryStatus: .delivered
+            )
+            addMessageToConversation(streamingMessage, sessionKey: sessionKey)
+        }
+    }
+
+    private func finalizeStreamingMessage(sessionKey: String) {
+        guard let messageId = streamingMessageIds[sessionKey] else { return }
+
+        if var conversation = conversations[sessionKey],
+           let index = conversation.messages.firstIndex(where: { $0.id == messageId }) {
+            conversation.messages[index].isStreaming = false
+            conversation.updatedAt = Date()
+            conversations[sessionKey] = conversation
+            saveConversations()
+        }
+
+        streamingMessageIds.removeValue(forKey: sessionKey)
+    }
+
+    private func addAgentResponseToUI(_ text: String, sessionKey: String) {
+        let agentMessage = Message(
+            id: UUID().uuidString,
+            conversationId: sessionKey,
+            role: .assistant,
+            content: text,
+            timestamp: Date(),
+            isStreaming: false,
+            toolCalls: nil,
+            location: nil,
+            deliveryStatus: .delivered
+        )
+
+        Task { @MainActor in
+            self.addMessageToConversation(agentMessage, sessionKey: sessionKey)
+
+            // Send notification if app is in background
+            if UIApplication.shared.applicationState != .active {
+                let preview = text.prefix(100) + (text.count > 100 ? "..." : "")
+                NotificationManager.shared.sendMessageNotification(
+                    from: "BART",
+                    content: String(preview),
+                    sessionKey: sessionKey
+                )
+            }
+
+            // Check for emergency keywords
+            if text.lowercased().contains("breach") ||
+               text.lowercased().contains("alert") ||
+               text.lowercased().contains("emergency") ||
+               text.lowercased().contains("critical") {
+                NotificationManager.shared.sendEmergencyNotification(
+                    title: "Security Alert",
+                    body: String(text.prefix(200))
+                )
+            }
+        }
+    }
+
+    private func fetchLatestMessage(sessionKey: String, runId: String) {
+        // Use sessions.preview to get the latest messages
+        let params: [String: Any] = [
+            "keys": [sessionKey],
+            "limit": 5
+        ]
+
+        sendRPC(method: "sessions.preview", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            print("📜 sessions.preview response:")
+            if let data = try? JSONSerialization.data(withJSONObject: response, options: .prettyPrinted),
+               let str = String(data: data, encoding: .utf8) {
+                print(str)
+            }
+
+            // Response format: { payload: { previews: { "ios-chat": { messages: [...] } } } }
+            if let payload = response["payload"] as? [String: Any],
+               let previews = payload["previews"] as? [String: Any],
+               let sessionPreview = previews[sessionKey] as? [String: Any],
+               let messages = sessionPreview["messages"] as? [[String: Any]] {
+                self.processPreviewMessages(messages, sessionKey: sessionKey)
+            } else if let result = response["result"] as? [String: Any],
+                      let previews = result["previews"] as? [String: Any],
+                      let sessionPreview = previews[sessionKey] as? [String: Any],
+                      let messages = sessionPreview["messages"] as? [[String: Any]] {
+                self.processPreviewMessages(messages, sessionKey: sessionKey)
+            } else {
+                print("⚠️ Could not parse sessions.preview response")
+            }
+        }
+    }
+
+    private func processPreviewMessages(_ messages: [[String: Any]], sessionKey: String) {
+        for msg in messages {
+            guard let role = msg["role"] as? String, role == "assistant" else { continue }
+
+            // Extract text content
+            var fullText = ""
+            if let content = msg["content"] as? [[String: Any]] {
+                for item in content {
+                    if let text = item["text"] as? String {
+                        fullText += text
+                    }
+                }
+            } else if let content = msg["content"] as? String {
+                fullText = content
+            }
+
+            if !fullText.isEmpty {
+                // Check if we already have this message (avoid duplicates)
+                let existingMessages = conversations[sessionKey]?.messages ?? []
+                let isDuplicate = existingMessages.contains { $0.content == fullText }
+
+                if !isDuplicate {
+                    print("💬 Agent response (from preview): \(fullText.prefix(100))...")
+                    addAgentResponseToUI(fullText, sessionKey: sessionKey)
+                }
+            }
         }
     }
 
@@ -540,7 +1821,8 @@ class GatewayConnection: NSObject, ObservableObject {
                     timestamp: Date(),
                     isStreaming: false,
                     toolCalls: nil,
-                    location: nil
+                    location: nil,
+                    deliveryStatus: .delivered
                 )
                 addMessageToConversation(newMessage, sessionKey: sessionKey)
             }
@@ -555,6 +1837,83 @@ class GatewayConnection: NSObject, ObservableObject {
                 Task { @MainActor in
                     self.pairingState = .failed("Pairing rejected")
                 }
+            }
+        }
+    }
+
+    // MARK: - Subagent Handling
+
+    private func handleSubagentSpawn(_ payload: [String: Any]) {
+        guard let sessionKey = payload["sessionKey"] as? String,
+              let parentSessionKey = payload["parentSessionKey"] as? String,
+              let label = payload["label"] as? String else {
+            print("⚠️ Invalid subagent spawn payload")
+            return
+        }
+
+        let id = payload["id"] as? String ?? UUID().uuidString
+        let task = payload["task"] as? String ?? label
+
+        let subAgent = SubAgentInfo(
+            id: id,
+            sessionKey: sessionKey,
+            parentSessionKey: parentSessionKey,
+            label: label,
+            task: task,
+            spawnedAt: Date(),
+            status: .running,
+            announceResult: nil
+        )
+
+        Task { @MainActor in
+            // Remove any existing subagent with same sessionKey
+            self.subAgents.removeAll { $0.sessionKey == sessionKey }
+            self.subAgents.append(subAgent)
+            print("🤖 Subagent spawned: \(label) (\(sessionKey))")
+
+            // Send notification
+            NotificationManager.shared.sendSubagentNotification(
+                label: label,
+                status: "Started",
+                sessionKey: sessionKey
+            )
+        }
+    }
+
+    private func handleSubagentAnnounce(_ payload: [String: Any]) {
+        guard let sessionKey = payload["sessionKey"] as? String else {
+            return
+        }
+
+        let status = payload["status"] as? String ?? "completed"
+        let result = payload["result"] as? String
+        let notes = payload["notes"] as? String
+        let runtime = payload["runtime"] as? TimeInterval
+        let tokens = payload["tokens"] as? Int
+        let cost = payload["cost"] as? Double
+
+        let announceResult = AnnounceResult(
+            status: status,
+            result: result,
+            notes: notes,
+            runtime: runtime,
+            tokens: tokens,
+            cost: cost
+        )
+
+        Task { @MainActor in
+            if let index = self.subAgents.firstIndex(where: { $0.sessionKey == sessionKey }) {
+                let label = self.subAgents[index].label
+                self.subAgents[index].status = status == "failed" ? .failed : .completed
+                self.subAgents[index].announceResult = announceResult
+                print("🤖 Subagent announced: \(sessionKey) - \(status)")
+
+                // Send notification
+                NotificationManager.shared.sendSubagentNotification(
+                    label: label,
+                    status: status.capitalized,
+                    sessionKey: sessionKey
+                )
             }
         }
     }
@@ -576,11 +1935,15 @@ class GatewayConnection: NSObject, ObservableObject {
         conversation.messages.append(message)
         conversation.updatedAt = Date()
         conversations[sessionKey] = conversation
+
+        // Persist conversations to disk
+        saveConversations()
     }
 
     // MARK: - Reconnection
 
     private func handleConnectionError(_ error: Error) {
+        print("❌ Connection error: \(error.localizedDescription)")
         connectionState = .failed(error.localizedDescription)
         isHandshakeComplete = false
         scheduleReconnect()
@@ -606,18 +1969,27 @@ class GatewayConnection: NSObject, ObservableObject {
 
 // MARK: - URLSessionWebSocketDelegate
 
-extension GatewayConnection: URLSessionWebSocketDelegate {
+extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate {
     nonisolated func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
     ) {
-        print("WebSocket connected, waiting for connect.challenge")
+        print("✅ WebSocket connected")
+        print("🔄 Starting message receive loop...")
         Task { @MainActor in
             self.reconnectAttempt = 0
             self.isReceiving = false
             self.receiveMessages()
-            // Don't set connectionState to .connected yet - wait for handshake
+            print("🔄 Receive loop started")
+
+            // Generate our own nonce and send connect request immediately
+            // Don't wait for connect.challenge - some gateways expect client to initiate
+            if self.connectNonce == nil {
+                self.connectNonce = UUID().uuidString
+                print("📤 Sending connect request with self-generated nonce")
+                self.sendConnectRequest()
+            }
         }
     }
 
@@ -627,11 +1999,31 @@ extension GatewayConnection: URLSessionWebSocketDelegate {
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
-        print("WebSocket disconnected: \(closeCode)")
+        let reasonString = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
+        print("⚠️ WebSocket disconnected: \(closeCode) reason: \(reasonString)")
         Task { @MainActor in
             self.connectionState = .disconnected
             self.isHandshakeComplete = false
             self.scheduleReconnect()
+        }
+    }
+
+    nonisolated func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        didCompleteWithError error: Error?
+    ) {
+        if let error = error {
+            let nsError = error as NSError
+            print("❌ URLSession task failed: \(error.localizedDescription)")
+            print("   Error domain: \(nsError.domain), code: \(nsError.code)")
+            if let underlying = nsError.userInfo[NSUnderlyingErrorKey] as? Error {
+                print("   Underlying: \(underlying.localizedDescription)")
+            }
+
+            Task { @MainActor in
+                self.connectionState = .failed(error.localizedDescription)
+            }
         }
     }
 }

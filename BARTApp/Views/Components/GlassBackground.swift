@@ -139,6 +139,157 @@ struct FloatingInputBar: View {
     }
 }
 
+// MARK: - Liquid Glass Button
+
+struct LiquidGlassButton: View {
+    let icon: String
+    var iconColor: Color = .accentColor
+    let title: String
+    let subtitle: String
+    let action: () -> Void
+
+    @State private var isPressed = false
+    @State private var shimmerOffset: CGFloat = -200
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                // Icon with glow
+                ZStack {
+                    // Glow effect
+                    Circle()
+                        .fill(iconColor.opacity(0.3))
+                        .frame(width: 52, height: 52)
+                        .blur(radius: 8)
+
+                    // Icon background
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    iconColor.opacity(0.25),
+                                    iconColor.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Circle()
+                                .stroke(iconColor.opacity(0.4), lineWidth: 1)
+                        )
+
+                    Image(systemName: icon)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(iconColor)
+                }
+                .frame(width: 48, height: 48)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.secondary.opacity(0.6))
+            }
+            .padding(16)
+            .background(
+                ZStack {
+                    // Base glass layer
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(.ultraThinMaterial)
+
+                    // Inner gradient for depth
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.15),
+                                    .clear,
+                                    .black.opacity(0.05)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+
+                    // Shimmer effect
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .clear,
+                                    .white.opacity(0.15),
+                                    .clear
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .offset(x: shimmerOffset)
+                        .mask(RoundedRectangle(cornerRadius: 20))
+
+                    // Border with gradient
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    .white.opacity(0.6),
+                                    .white.opacity(0.2),
+                                    .white.opacity(0.1)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 1
+                        )
+
+                    // Inner shadow
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(.black.opacity(0.1), lineWidth: 1)
+                        .blur(radius: 1)
+                        .offset(y: 1)
+                        .mask(RoundedRectangle(cornerRadius: 20))
+                }
+            )
+            .shadow(color: .black.opacity(0.1), radius: 10, x: 0, y: 5)
+            .shadow(color: iconColor.opacity(0.1), radius: 15, x: 0, y: 5)
+            .scaleEffect(isPressed ? 0.97 : 1)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .onAppear {
+            withAnimation(
+                .linear(duration: 2.5)
+                .repeatForever(autoreverses: false)
+            ) {
+                shimmerOffset = 400
+            }
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    withAnimation(.easeInOut(duration: 0.1)) {
+                        isPressed = true
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        isPressed = false
+                    }
+                }
+        )
+    }
+}
+
 struct PulsingDot: View {
     @State private var isPulsing = false
 

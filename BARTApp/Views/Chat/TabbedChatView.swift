@@ -13,11 +13,11 @@ struct TabbedChatView: View {
         NavigationStack {
             ZStack(alignment: .bottom) {
                 TabView(selection: $selectedTab) {
-                    ChatThreadView(sessionKey: "main", title: "BART")
+                    ChatThreadView(initialSessionKey: "main", initialTitle: "Main Chat")
                         .tag("main")
 
                     ForEach(runningSubAgents) { subAgent in
-                        ChatThreadView(sessionKey: subAgent.sessionKey, title: subAgent.label)
+                        ChatThreadView(initialSessionKey: subAgent.sessionKey, initialTitle: subAgent.label)
                             .tag(subAgent.sessionKey)
                     }
                 }

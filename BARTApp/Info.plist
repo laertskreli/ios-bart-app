@@ -45,6 +45,8 @@
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>BART needs your location to share it with your AI assistant when you request location-based help.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>BART needs camera access to scan QR codes for quick gateway pairing.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
@@ -54,18 +56,10 @@
     <false/>
     <key>NSAppTransportSecurity</key>
     <dict>
-        <key>NSExceptionDomains</key>
-        <dict>
-            <key>tail3eabbc.ts.net</key>
-            <dict>
-                <key>NSIncludesSubdomains</key>
-                <true/>
-                <key>NSExceptionAllowsInsecureHTTPLoads</key>
-                <true/>
-                <key>NSExceptionMinimumTLSVersion</key>
-                <string>TLSv1.2</string>
-            </dict>
-        </dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
     </dict>
 </dict>
 </plist>

@@ -13,10 +13,7 @@ struct LocationShareSheet: View {
     @State private var showError = false
     @State private var errorMessage = ""
 
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194),
-        span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-    )
+    @State private var position: MapCameraPosition = .userLocation(fallback: .automatic)
 
     var body: some View {
         NavigationStack {
@@ -46,13 +43,6 @@ struct LocationShareSheet: View {
             .onAppear {
                 locationManager.requestLocation()
             }
-            .onChange(of: locationManager.currentLocation) { _, newLocation in
-                if let location = newLocation {
-                    withAnimation {
-                        region.center = location.coordinate
-                    }
-                }
-            }
             .alert("Error", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -65,13 +55,15 @@ struct LocationShareSheet: View {
 
     private var mapPreview: some View {
         ZStack {
-            Map(coordinateRegion: $region, showsUserLocation: true)
-                .frame(height: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                )
+            Map(position: $position) {
+                UserAnnotation()
+            }
+            .frame(height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+            )
 
             if locationManager.currentLocation == nil {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -235,5 +227,5 @@ struct LocationShareSheet: View {
 
 #Preview {
     LocationShareSheet(sessionKey: "main")
-        .environmentObject(GatewayConnection(gatewayHost: "localhost"))
+        .environmentObject(GatewayConnection(gatewayHost: "localhost", port: 18789, useSSL: false))
 }

@@ -3,7 +3,7 @@ import Combine
 import UIKit
 
 @MainActor
-class GatewayConnection: ObservableObject {
+class GatewayConnection: NSObject, ObservableObject {
 
     // MARK: - Published State
 
@@ -19,28 +19,29 @@ class GatewayConnection: ObservableObject {
     private let gatewayHost: String
     private let port: Int
     private var webSocketTask: URLSessionWebSocketTask?
-    private let session: URLSession
-    private var pendingRequests: [String: CheckedContinuation<RPCResponse, Error>] = [:]
+    private var urlSession: URLSession!
+    private var responseHandlers: [String: ([String: Any]) -> Void] = [:]
     private var reconnectAttempt = 0
     private let maxReconnectAttempts = 5
     private var isReceiving = false
+    private var pollingTimer: Timer?
 
-    private let keychainService = "com.bart.gateway"
-    private let keychainAccount = "pairingToken"
+    private let keychainService = "openclaw-node-token"
 
     // MARK: - Init
 
     init(gatewayHost: String, port: Int = 18789) {
         self.gatewayHost = gatewayHost
         self.port = port
+        self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
+
+        super.init()
 
         let config = URLSessionConfiguration.default
         config.waitsForConnectivity = true
-        self.session = URLSession(configuration: config)
+        self.urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
-        self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
-
-        if let token = KeychainHelper.loadString(service: keychainService, account: keychainAccount) {
+        if let token = KeychainHelper.loadString(service: keychainService, account: "openclaw-\(deviceIdentity.nodeId)") {
             self.pairingState = .paired(token: token)
             self.deviceIdentity.pairingToken = token
         }
@@ -82,43 +83,21 @@ class GatewayConnection: ObservableObject {
 
         connectionState = .connecting
 
-        var urlComponents = URLComponents()
-        urlComponents.scheme = "ws"
-        urlComponents.host = gatewayHost
-        urlComponents.port = port
-
-        guard let url = urlComponents.url else {
+        // Use wss:// for secure WebSocket
+        let urlString = "wss://\(gatewayHost):\(port)"
+        guard let url = URL(string: urlString) else {
             connectionState = .failed("Invalid gateway URL")
             return
         }
 
-        var request = URLRequest(url: url)
-        request.setValue("ios-node", forHTTPHeaderField: "X-Client-Type")
-        request.setValue(deviceIdentity.nodeId, forHTTPHeaderField: "X-Node-Id")
-
-        if case .paired(let token) = pairingState {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-
-        webSocketTask = session.webSocketTask(with: request)
+        let request = URLRequest(url: url)
+        webSocketTask = urlSession.webSocketTask(with: request)
         webSocketTask?.resume()
-
-        connectionState = .connected
-        reconnectAttempt = 0
-        isReceiving = false
-
-        receiveMessages()
-
-        Task {
-            if case .paired(let token) = pairingState {
-                await verifyPairing(token: token)
-            } else {
-                await requestPairing()
-            }
-        }
     }
 
     func disconnect() {
+        pollingTimer?.invalidate()
+        pollingTimer = nil
         webSocketTask?.cancel(with: .goingAway, reason: nil)
         webSocketTask = nil
         connectionState = .disconnected
@@ -127,115 +106,120 @@ class GatewayConnection: ObservableObject {
 
     // MARK: - Pairing
 
-    private func requestPairing() async {
-        do {
-            let response = try await rpc(
-                method: "node.pair.request",
-                params: [
-                    "nodeId": AnyCodable(deviceIdentity.nodeId),
-                    "name": AnyCodable(deviceIdentity.displayName),
-                    "capabilities": AnyCodable(["chat", "location"])
-                ]
-            )
+    private func requestPairing() {
+        let params: [String: Any] = [
+            "nodeId": deviceIdentity.nodeId,
+            "displayName": deviceIdentity.displayName,
+            "platform": "ios",
+            "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+            "deviceFamily": UIDevice.current.model,
+            "modelIdentifier": UIDevice.current.modelIdentifier,
+            "caps": ["chat", "location"],
+            "commands": ["location.get"]
+        ]
 
-            if let result = response.result?.value as? [String: Any],
-               let requestId = result["requestId"] as? String,
-               let code = result["code"] as? String {
-                pairingState = .pendingApproval(code: code, requestId: requestId)
-                await pollForPairingApproval(requestId: requestId)
-            }
-        } catch {
-            pairingState = .failed("Pairing request failed: \(error.localizedDescription)")
-        }
-    }
+        sendRPC(method: "node.pair.request", params: params) { [weak self] response in
+            guard let self = self else { return }
 
-    private func pollForPairingApproval(requestId: String) async {
-        for _ in 0..<150 {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-
-            guard case .pendingApproval = pairingState else { return }
-
-            do {
-                let response = try await rpc(
-                    method: "node.pair.status",
-                    params: ["requestId": AnyCodable(requestId)]
-                )
-
-                if let result = response.result?.value as? [String: Any],
-                   let status = result["status"] as? String {
-
-                    if status == "approved", let token = result["token"] as? String {
-                        deviceIdentity.pairingToken = token
-                        deviceIdentity.pairedAt = Date()
-                        saveDeviceIdentity()
-
-                        _ = KeychainHelper.saveString(token, service: keychainService, account: keychainAccount)
-
-                        pairingState = .paired(token: token)
-
-                        disconnect()
-                        connect()
-                        return
-                    } else if status == "rejected" {
-                        pairingState = .failed("Pairing rejected")
-                        return
-                    } else if status == "expired" {
-                        pairingState = .failed("Pairing request expired")
-                        return
+            if let result = response["result"] as? [String: Any],
+               let status = result["status"] as? String {
+                if status == "pending" {
+                    let code = result["code"] as? String ?? ""
+                    let requestId = result["requestId"] as? String ?? ""
+                    Task { @MainActor in
+                        self.pairingState = .pendingApproval(code: code, requestId: requestId)
+                        self.startPollingForApproval()
                     }
                 }
-            } catch {
-                // Continue polling
+            } else if let error = response["error"] as? [String: Any] {
+                let message = error["message"] as? String ?? "Unknown error"
+                Task { @MainActor in
+                    self.pairingState = .failed(message)
+                }
             }
         }
-
-        pairingState = .failed("Pairing timed out")
     }
 
-    private func verifyPairing(token: String) async {
-        do {
-            let response = try await rpc(
-                method: "node.pair.verify",
-                params: [
-                    "nodeId": AnyCodable(deviceIdentity.nodeId),
-                    "token": AnyCodable(token)
-                ]
-            )
+    private func startPollingForApproval() {
+        pollingTimer?.invalidate()
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.pollForApproval()
+        }
+    }
 
-            if let result = response.result?.value as? [String: Any],
-               let valid = result["valid"] as? Bool, valid {
-                await fetchAgentInfo()
+    private func pollForApproval() {
+        guard case .pendingApproval = pairingState else {
+            pollingTimer?.invalidate()
+            pollingTimer = nil
+            return
+        }
+
+        let params: [String: Any] = [
+            "nodeId": deviceIdentity.nodeId,
+            "token": ""
+        ]
+
+        sendRPC(method: "node.pair.verify", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            if let result = response["result"] as? [String: Any],
+               let ok = result["ok"] as? Bool, ok,
+               let node = result["node"] as? [String: Any],
+               let token = node["token"] as? String {
+
+                Task { @MainActor in
+                    self.pollingTimer?.invalidate()
+                    self.pollingTimer = nil
+
+                    self.deviceIdentity.pairingToken = token
+                    self.deviceIdentity.pairedAt = Date()
+                    self.saveDeviceIdentity()
+
+                    _ = KeychainHelper.saveString(
+                        token,
+                        service: self.keychainService,
+                        account: "openclaw-\(self.deviceIdentity.nodeId)"
+                    )
+
+                    self.pairingState = .paired(token: token)
+                }
+            }
+        }
+    }
+
+    private func verifyPairing(token: String) {
+        let params: [String: Any] = [
+            "nodeId": deviceIdentity.nodeId,
+            "token": token
+        ]
+
+        sendRPC(method: "node.pair.verify", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            if let result = response["result"] as? [String: Any],
+               let ok = result["ok"] as? Bool, ok {
+                Task { @MainActor in
+                    self.connectionState = .connected
+                }
             } else {
-                KeychainHelper.delete(service: keychainService, account: keychainAccount)
-                deviceIdentity.pairingToken = nil
-                saveDeviceIdentity()
-                pairingState = .unpaired
-                await requestPairing()
+                Task { @MainActor in
+                    KeychainHelper.delete(
+                        service: self.keychainService,
+                        account: "openclaw-\(self.deviceIdentity.nodeId)"
+                    )
+                    self.deviceIdentity.pairingToken = nil
+                    self.saveDeviceIdentity()
+                    self.pairingState = .unpaired
+                    self.requestPairing()
+                }
             }
-        } catch {
-            connectionState = .failed("Verification failed: \(error.localizedDescription)")
-        }
-    }
-
-    private func fetchAgentInfo() async {
-        do {
-            let response = try await rpc(method: "agents.current", params: nil)
-
-            if let result = response.result?.value as? [String: Any],
-               let agentId = result["id"] as? String {
-                currentAgent = AgentInfo(
-                    id: agentId,
-                    name: result["name"] as? String,
-                    workspace: result["workspace"] as? String
-                )
-            }
-        } catch {
-            // Non-fatal
         }
     }
 
     func resetPairing() {
-        KeychainHelper.delete(service: keychainService, account: keychainAccount)
+        pollingTimer?.invalidate()
+        pollingTimer = nil
+        KeychainHelper.delete(service: keychainService, account: "openclaw-\(deviceIdentity.nodeId)")
         deviceIdentity.pairingToken = nil
         deviceIdentity.pairedAt = nil
         saveDeviceIdentity()
@@ -245,27 +229,35 @@ class GatewayConnection: ObservableObject {
 
     // MARK: - RPC
 
-    private func rpc(method: String, params: [String: AnyCodable]?) async throws -> RPCResponse {
+    private func sendRPC(method: String, params: [String: Any], completion: @escaping ([String: Any]) -> Void) {
         let requestId = UUID().uuidString
-        let request = RPCRequest(id: requestId, method: method, params: params)
 
-        let data = try JSONEncoder().encode(request)
-        let message = URLSessionWebSocketTask.Message.data(data)
+        let message: [String: Any] = [
+            "jsonrpc": "2.0",
+            "id": requestId,
+            "method": method,
+            "params": params
+        ]
 
-        try await webSocketTask?.send(message)
+        guard let data = try? JSONSerialization.data(withJSONObject: message),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return
+        }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            pendingRequests[requestId] = continuation
+        responseHandlers[requestId] = completion
 
-            Task {
-                try? await Task.sleep(nanoseconds: 30_000_000_000)
-                if let cont = pendingRequests.removeValue(forKey: requestId) {
-                    cont.resume(throwing: NSError(
-                        domain: "Gateway",
-                        code: -1,
-                        userInfo: [NSLocalizedDescriptionKey: "Request timed out"]
-                    ))
-                }
+        let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
+        webSocketTask?.send(wsMessage) { error in
+            if let error = error {
+                print("WebSocket send error: \(error)")
+                self.responseHandlers.removeValue(forKey: requestId)
+            }
+        }
+
+        // Timeout after 30 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+            if let handler = self?.responseHandlers.removeValue(forKey: requestId) {
+                handler(["error": ["message": "Request timed out"]])
             }
         }
     }
@@ -273,8 +265,14 @@ class GatewayConnection: ObservableObject {
     // MARK: - Chat
 
     func sendMessage(_ text: String, sessionKey: String? = nil) async throws {
-        let key = sessionKey ?? "main"
+        guard case .paired(let token) = pairingState else {
+            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not paired"])
+        }
 
+        let agentId = currentAgent?.id ?? "main"
+        let key = sessionKey ?? "agent:\(agentId):ios-node:dm:\(deviceIdentity.nodeId)"
+
+        // Add user message to conversation
         let userMessage = Message(
             id: UUID().uuidString,
             conversationId: key,
@@ -285,83 +283,75 @@ class GatewayConnection: ObservableObject {
             toolCalls: nil,
             location: nil
         )
-
         addMessageToConversation(userMessage, sessionKey: key)
 
-        let response = try await rpc(
-            method: "chat.send",
-            params: [
-                "message": AnyCodable(text),
-                "sessionKey": AnyCodable(key)
+        let params: [String: Any] = [
+            "auth": [
+                "nodeId": deviceIdentity.nodeId,
+                "token": token
+            ],
+            "agentId": agentId,
+            "sessionKey": key,
+            "content": [
+                ["type": "text", "text": text]
             ]
-        )
+        ]
 
-        if let error = response.error {
-            throw NSError(
-                domain: "Gateway",
-                code: error.code,
-                userInfo: [NSLocalizedDescriptionKey: error.message]
-            )
+        return try await withCheckedThrowingContinuation { continuation in
+            sendRPC(method: "sessions.send", params: params) { response in
+                if let error = response["error"] as? [String: Any] {
+                    let message = error["message"] as? String ?? "Unknown error"
+                    continuation.resume(throwing: NSError(
+                        domain: "Gateway",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: message]
+                    ))
+                } else {
+                    continuation.resume()
+                }
+            }
         }
     }
 
     func sendLocation(_ location: LocationShare, sessionKey: String? = nil) async throws {
-        let key = sessionKey ?? "main"
-
-        let response = try await rpc(
-            method: "chat.send",
-            params: [
-                "message": AnyCodable("Shared location"),
-                "sessionKey": AnyCodable(key),
-                "attachments": AnyCodable([
-                    [
-                        "type": "location",
-                        "latitude": location.latitude,
-                        "longitude": location.longitude,
-                        "accuracy": location.accuracy ?? 0,
-                        "ttl": location.ttl
-                    ]
-                ])
-            ]
-        )
-
-        if let error = response.error {
-            throw NSError(
-                domain: "Gateway",
-                code: error.code,
-                userInfo: [NSLocalizedDescriptionKey: error.message]
-            )
-        }
-    }
-
-    func fetchHistory(sessionKey: String, limit: Int = 50) async throws -> [Message] {
-        let response = try await rpc(
-            method: "chat.history",
-            params: [
-                "sessionKey": AnyCodable(sessionKey),
-                "limit": AnyCodable(limit)
-            ]
-        )
-
-        guard let result = response.result?.value as? [[String: Any]] else {
-            return []
+        guard case .paired(let token) = pairingState else {
+            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not paired"])
         }
 
-        return result.compactMap { dict -> Message? in
-            guard let id = dict["id"] as? String,
-                  let roleStr = dict["role"] as? String,
-                  let content = dict["content"] as? String else { return nil }
+        let agentId = currentAgent?.id ?? "main"
+        let key = sessionKey ?? "agent:\(agentId):ios-node:dm:\(deviceIdentity.nodeId)"
 
-            return Message(
-                id: id,
-                conversationId: sessionKey,
-                role: roleStr == "user" ? .user : .assistant,
-                content: content,
-                timestamp: Date(),
-                isStreaming: false,
-                toolCalls: nil,
-                location: nil
-            )
+        let params: [String: Any] = [
+            "auth": [
+                "nodeId": deviceIdentity.nodeId,
+                "token": token
+            ],
+            "agentId": agentId,
+            "sessionKey": key,
+            "content": [
+                [
+                    "type": "location",
+                    "latitude": location.latitude,
+                    "longitude": location.longitude,
+                    "accuracy": location.accuracy ?? 0,
+                    "ttl": location.ttl
+                ]
+            ]
+        ]
+
+        return try await withCheckedThrowingContinuation { continuation in
+            sendRPC(method: "sessions.send", params: params) { response in
+                if let error = response["error"] as? [String: Any] {
+                    let message = error["message"] as? String ?? "Unknown error"
+                    continuation.resume(throwing: NSError(
+                        domain: "Gateway",
+                        code: -1,
+                        userInfo: [NSLocalizedDescriptionKey: message]
+                    ))
+                } else {
+                    continuation.resume()
+                }
+            }
         }
     }
 
@@ -397,134 +387,74 @@ class GatewayConnection: ObservableObject {
         @unknown default: return
         }
 
-        if let response = try? JSONDecoder().decode(RPCResponse.self, from: data),
-           let continuation = pendingRequests.removeValue(forKey: response.id) {
-            continuation.resume(returning: response)
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
 
-        if let event = parseEvent(data) {
-            handleEvent(event)
+        // Handle responses to our requests
+        if let id = json["id"] as? String,
+           let handler = responseHandlers.removeValue(forKey: id) {
+            handler(json)
+            return
+        }
+
+        // Handle server-initiated messages
+        if let method = json["method"] as? String {
+            handleServerMessage(method: method, message: json)
         }
     }
 
-    private func parseEvent(_ data: Data) -> GatewayEvent? {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let eventType = json["event"] as? String else {
-            return nil
-        }
+    private func handleServerMessage(method: String, message: [String: Any]) {
+        guard let params = message["params"] as? [String: Any] else { return }
 
-        let sessionId = json["sessionId"] as? String ?? ""
-        let eventData = json["data"] as? [String: Any] ?? [:]
+        switch method {
+        case "agent.message":
+            handleAgentMessage(params)
 
-        switch eventType {
-        case "assistant:delta", "assistant":
-            guard let text = eventData["text"] as? String,
-                  let messageId = eventData["messageId"] as? String else { return nil }
-            return .assistantDelta(sessionId: sessionId, messageId: messageId, text: text)
+        case "node.pair.resolved":
+            handlePairResolved(params)
 
-        case "tool:start":
-            guard let toolId = eventData["toolCallId"] as? String,
-                  let toolName = eventData["toolName"] as? String else { return nil }
-            return .toolStart(sessionId: sessionId, toolId: toolId, toolName: toolName)
-
-        case "tool:end":
-            guard let toolId = eventData["toolCallId"] as? String else { return nil }
-            return .toolEnd(sessionId: sessionId, toolId: toolId, result: eventData["result"] as? String)
-
-        case "stream:start":
-            return .streamStart(sessionId: sessionId)
-
-        case "stream:end":
-            return .streamEnd(sessionId: sessionId)
-
-        case "subagent:announce":
-            guard let sessionKey = eventData["sessionKey"] as? String else { return nil }
-            let result = AnnounceResult(
-                status: eventData["status"] as? String ?? "",
-                result: eventData["result"] as? String,
-                notes: eventData["notes"] as? String,
-                runtime: eventData["runtime"] as? TimeInterval,
-                tokens: eventData["tokens"] as? Int,
-                cost: eventData["cost"] as? Double
-            )
-            return .subAgentAnnounce(sessionKey: sessionKey, result: result)
-
-        case "error":
-            return .error(
-                code: eventData["code"] as? String ?? "unknown",
-                message: eventData["message"] as? String ?? "Unknown error"
-            )
+        case "agent.typing":
+            // Could show typing indicator
+            break
 
         default:
-            return nil
+            print("Unhandled server method: \(method)")
         }
     }
 
-    private func handleEvent(_ event: GatewayEvent) {
-        switch event {
-        case .assistantDelta(let sessionId, let messageId, let text):
-            updateMessageWithDelta(sessionId: sessionId, messageId: messageId, delta: text)
+    private func handleAgentMessage(_ params: [String: Any]) {
+        guard let content = params["content"] as? [[String: Any]] else { return }
 
-        case .toolStart(let sessionId, let toolId, let toolName):
-            addToolCall(sessionId: sessionId, toolId: toolId, toolName: toolName)
+        let sessionKey = params["sessionKey"] as? String ?? "main"
 
-            if toolName == "sessions_spawn" {
-                // Sub-agent spawning, handled in tool:end
+        for item in content {
+            if let text = item["text"] as? String {
+                let messageId = UUID().uuidString
+                let newMessage = Message(
+                    id: messageId,
+                    conversationId: sessionKey,
+                    role: .assistant,
+                    content: text,
+                    timestamp: Date(),
+                    isStreaming: false,
+                    toolCalls: nil,
+                    location: nil
+                )
+                addMessageToConversation(newMessage, sessionKey: sessionKey)
             }
+        }
+    }
 
-        case .toolEnd(let sessionId, let toolId, let result):
-            updateToolCall(sessionId: sessionId, toolId: toolId, result: result)
-
-            if let result = result,
-               let resultData = result.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: resultData) as? [String: Any],
-               let childSessionKey = json["childSessionKey"] as? String {
-
-                let parts = childSessionKey.split(separator: ":")
-                if parts.count >= 4, parts[2] == "subagent" {
-                    let subAgentId = String(parts[3])
-                    let subAgent = SubAgentInfo(
-                        id: subAgentId,
-                        sessionKey: childSessionKey,
-                        parentSessionKey: sessionId,
-                        label: json["label"] as? String ?? "Sub-agent",
-                        task: json["task"] as? String ?? "",
-                        spawnedAt: Date(),
-                        status: .running,
-                        announceResult: nil
-                    )
-                    subAgents.append(subAgent)
+    private func handlePairResolved(_ params: [String: Any]) {
+        if let decision = params["decision"] as? String {
+            if decision == "approved" {
+                pollForApproval()
+            } else {
+                Task { @MainActor in
+                    self.pairingState = .failed("Pairing rejected")
                 }
             }
-
-        case .streamStart(let sessionId):
-            if var conversation = conversations[sessionId] {
-                conversation.status = .streaming
-                conversations[sessionId] = conversation
-            }
-
-        case .streamEnd(let sessionId):
-            if var conversation = conversations[sessionId] {
-                conversation.status = .active
-                if var lastMsg = conversation.messages.last, lastMsg.isStreaming {
-                    lastMsg.isStreaming = false
-                    conversation.messages[conversation.messages.count - 1] = lastMsg
-                }
-                conversations[sessionId] = conversation
-            }
-
-        case .subAgentAnnounce(let sessionKey, let result):
-            if let idx = subAgents.firstIndex(where: { $0.sessionKey == sessionKey }) {
-                subAgents[idx].status = result.status == "success" ? .completed : .failed
-                subAgents[idx].announceResult = result
-            }
-
-        case .error(let code, let message):
-            print("Gateway error: \(code) - \(message)")
-
-        case .pairingApproved:
-            break
         }
     }
 
@@ -532,7 +462,7 @@ class GatewayConnection: ObservableObject {
         var conversation = conversations[sessionKey] ?? Conversation(
             id: sessionKey,
             sessionKey: sessionKey,
-            agentId: currentAgent?.id ?? "unknown",
+            agentId: currentAgent?.id ?? "main",
             label: nil,
             isSubAgent: sessionKey.contains(":subagent:"),
             parentSessionKey: nil,
@@ -545,72 +475,6 @@ class GatewayConnection: ObservableObject {
         conversation.messages.append(message)
         conversation.updatedAt = Date()
         conversations[sessionKey] = conversation
-    }
-
-    private func updateMessageWithDelta(sessionId: String, messageId: String, delta: String) {
-        var conversation = conversations[sessionId] ?? Conversation(
-            id: sessionId,
-            sessionKey: sessionId,
-            agentId: currentAgent?.id ?? "unknown",
-            label: nil,
-            isSubAgent: sessionId.contains(":subagent:"),
-            parentSessionKey: nil,
-            messages: [],
-            createdAt: Date(),
-            updatedAt: Date(),
-            status: .streaming
-        )
-
-        if let idx = conversation.messages.firstIndex(where: { $0.id == messageId }) {
-            conversation.messages[idx].content += delta
-        } else {
-            let newMessage = Message(
-                id: messageId,
-                conversationId: sessionId,
-                role: .assistant,
-                content: delta,
-                timestamp: Date(),
-                isStreaming: true,
-                toolCalls: nil,
-                location: nil
-            )
-            conversation.messages.append(newMessage)
-        }
-
-        conversation.updatedAt = Date()
-        conversations[sessionId] = conversation
-    }
-
-    private func addToolCall(sessionId: String, toolId: String, toolName: String) {
-        guard var conversation = conversations[sessionId],
-              var lastMessage = conversation.messages.last,
-              lastMessage.role == .assistant else { return }
-
-        var toolCalls = lastMessage.toolCalls ?? []
-        toolCalls.append(ToolCall(
-            id: toolId,
-            name: toolName,
-            status: .running,
-            result: nil,
-            spawnedSessionKey: nil,
-            spawnedLabel: nil
-        ))
-        lastMessage.toolCalls = toolCalls
-        conversation.messages[conversation.messages.count - 1] = lastMessage
-        conversations[sessionId] = conversation
-    }
-
-    private func updateToolCall(sessionId: String, toolId: String, result: String?) {
-        guard var conversation = conversations[sessionId],
-              var lastMessage = conversation.messages.last,
-              var toolCalls = lastMessage.toolCalls,
-              let idx = toolCalls.firstIndex(where: { $0.id == toolId }) else { return }
-
-        toolCalls[idx].status = .completed
-        toolCalls[idx].result = result
-        lastMessage.toolCalls = toolCalls
-        conversation.messages[conversation.messages.count - 1] = lastMessage
-        conversations[sessionId] = conversation
     }
 
     // MARK: - Reconnection
@@ -635,5 +499,58 @@ class GatewayConnection: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             connect()
         }
+    }
+}
+
+// MARK: - URLSessionWebSocketDelegate
+
+extension GatewayConnection: URLSessionWebSocketDelegate {
+    nonisolated func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didOpenWithProtocol protocol: String?
+    ) {
+        print("WebSocket connected")
+        Task { @MainActor in
+            self.connectionState = .connected
+            self.reconnectAttempt = 0
+            self.isReceiving = false
+            self.receiveMessages()
+
+            // Start pairing or verify existing token
+            if case .paired(let token) = self.pairingState {
+                self.verifyPairing(token: token)
+            } else {
+                self.requestPairing()
+            }
+        }
+    }
+
+    nonisolated func urlSession(
+        _ session: URLSession,
+        webSocketTask: URLSessionWebSocketTask,
+        didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
+        reason: Data?
+    ) {
+        print("WebSocket disconnected: \(closeCode)")
+        Task { @MainActor in
+            self.connectionState = .disconnected
+            self.scheduleReconnect()
+        }
+    }
+}
+
+// MARK: - UIDevice Extension
+
+extension UIDevice {
+    var modelIdentifier: String {
+        var systemInfo = utsname()
+        uname(&systemInfo)
+        let machineMirror = Mirror(reflecting: systemInfo.machine)
+        let identifier = machineMirror.children.reduce("") { identifier, element in
+            guard let value = element.value as? Int8, value != 0 else { return identifier }
+            return identifier + String(UnicodeScalar(UInt8(value)))
+        }
+        return identifier
     }
 }

@@ -1,18 +1,14 @@
 import Foundation
 
-enum Configuration {
+enum AppConfig {
 
     /// The Tailscale hostname for the OpenClaw Gateway
-    /// Replace this with your Mac Mini's Tailscale hostname
     static let gatewayHost: String = {
         // Check for environment variable first (useful for testing)
         if let envHost = ProcessInfo.processInfo.environment["BART_GATEWAY_HOST"] {
             return envHost
         }
-
-        // Default to your Tailscale hostname
-        // TODO: Replace with your actual Tailscale hostname
-        return "mac-mini.tail12345.ts.net"
+        return "treals-mac-mini-1.tail3eabbc.ts.net"
     }()
 
     /// The port the OpenClaw Gateway listens on

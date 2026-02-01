@@ -92,7 +92,7 @@ struct LocationShareSheet: View {
             VStack(spacing: 12) {
                 HStack {
                     Image(systemName: "location.fill")
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .frame(width: 32, height: 32)
                         .background(Circle().fill(.ultraThinMaterial))
 
@@ -161,7 +161,7 @@ struct LocationShareSheet: View {
 
                     Text(ttlFormatted)
                         .font(.subheadline)
-                        .foregroundStyle(.accentColor)
+                        .foregroundStyle(Color.accentColor)
                         .fontWeight(.semibold)
                 }
 

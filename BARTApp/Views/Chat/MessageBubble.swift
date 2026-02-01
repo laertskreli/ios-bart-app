@@ -83,7 +83,7 @@ struct MessageBubble: View {
     private func locationPreview(_ location: LocationShare) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "location.fill")
-                .foregroundStyle(.accentColor)
+                .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Location shared")
@@ -124,7 +124,7 @@ struct ToolCallBadge: View {
             if toolCall.name == "sessions_spawn", let label = toolCall.spawnedLabel {
                 Text("→ \(label)")
                     .font(.caption2)
-                    .foregroundStyle(.accentColor)
+                    .foregroundStyle(Color.accentColor)
             }
         }
         .padding(.horizontal, 10)

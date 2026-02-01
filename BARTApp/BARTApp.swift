@@ -6,8 +6,8 @@ struct BARTApp: App {
 
     init() {
         _gateway = StateObject(wrappedValue: GatewayConnection(
-            gatewayHost: Configuration.gatewayHost,
-            port: Configuration.gatewayPort
+            gatewayHost: AppConfig.gatewayHost,
+            port: AppConfig.gatewayPort
         ))
     }
 

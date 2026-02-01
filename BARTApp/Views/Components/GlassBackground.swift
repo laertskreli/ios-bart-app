@@ -50,7 +50,7 @@ struct GlassButton: ButtonStyle {
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
             .background(
-                Group {
+                ZStack {
                     if isProminent {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(
@@ -64,11 +64,26 @@ struct GlassButton: ButtonStyle {
                                 )
                             )
                     } else {
-                        GlassBackground(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                .white.opacity(0.5),
+                                                .white.opacity(0.1)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1
+                                    )
+                            )
                     }
                 }
             )
-            .foregroundStyle(isProminent ? .white : .primary)
+            .foregroundStyle(isProminent ? Color.white : Color.primary)
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
             .animation(.easeInOut(duration: 0.15), value: configuration.isPressed)
     }

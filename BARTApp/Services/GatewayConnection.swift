@@ -26,11 +26,15 @@ class GatewayConnection: NSObject, ObservableObject {
     private var isReceiving = false
     private var pollingTimer: Timer?
 
+    // Connection handshake state
+    private var isHandshakeComplete = false
+    private var connectNonce: String?
+
     private let keychainService = "openclaw-node-token"
 
     // MARK: - Init
 
-    init(gatewayHost: String, port: Int = 18789) {
+    init(gatewayHost: String, port: Int = 443) {
         self.gatewayHost = gatewayHost
         self.port = port
         self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
@@ -82,9 +86,17 @@ class GatewayConnection: NSObject, ObservableObject {
               (connectionState != .connecting && connectionState != .connected) else { return }
 
         connectionState = .connecting
+        isHandshakeComplete = false
+        connectNonce = nil
 
-        // Use wss:// for secure WebSocket
-        let urlString = "wss://\(gatewayHost):\(port)"
+        // Use wss:// without port (Tailscale Serve handles it)
+        let urlString: String
+        if port == 443 {
+            urlString = "wss://\(gatewayHost)"
+        } else {
+            urlString = "wss://\(gatewayHost):\(port)"
+        }
+
         guard let url = URL(string: urlString) else {
             connectionState = .failed("Invalid gateway URL")
             return
@@ -102,11 +114,66 @@ class GatewayConnection: NSObject, ObservableObject {
         webSocketTask = nil
         connectionState = .disconnected
         isReceiving = false
+        isHandshakeComplete = false
+    }
+
+    // MARK: - Connect Handshake
+
+    private func handleConnectChallenge(nonce: String) {
+        self.connectNonce = nonce
+        sendConnectRequest()
+    }
+
+    private func sendConnectRequest() {
+        let params: [String: Any] = [
+            "minProtocol": 1,
+            "maxProtocol": 1,
+            "client": [
+                "id": "ios-node",
+                "displayName": deviceIdentity.displayName,
+                "version": Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
+                "platform": "ios",
+                "deviceFamily": UIDevice.current.model,
+                "modelIdentifier": UIDevice.current.modelIdentifier,
+                "mode": "node"
+            ],
+            "role": "node",
+            "caps": ["chat", "location"],
+            "commands": ["location.get"]
+        ]
+
+        sendRPC(method: "connect", params: params) { [weak self] response in
+            guard let self = self else { return }
+
+            if let _ = response["result"] as? [String: Any] {
+                Task { @MainActor in
+                    print("Connect handshake complete")
+                    self.isHandshakeComplete = true
+
+                    // Now proceed with pairing or verification
+                    if case .paired(let token) = self.pairingState {
+                        self.verifyPairing(token: token)
+                    } else {
+                        self.requestPairing()
+                    }
+                }
+            } else if let error = response["error"] as? [String: Any] {
+                let message = error["message"] as? String ?? "Connect failed"
+                Task { @MainActor in
+                    self.connectionState = .failed(message)
+                }
+            }
+        }
     }
 
     // MARK: - Pairing
 
     private func requestPairing() {
+        guard isHandshakeComplete else {
+            print("Waiting for connect handshake before pairing")
+            return
+        }
+
         let params: [String: Any] = [
             "nodeId": deviceIdentity.nodeId,
             "displayName": deviceIdentity.displayName,
@@ -127,6 +194,7 @@ class GatewayConnection: NSObject, ObservableObject {
                     let code = result["code"] as? String ?? ""
                     let requestId = result["requestId"] as? String ?? ""
                     Task { @MainActor in
+                        print("Pairing request sent, code: \(code)")
                         self.pairingState = .pendingApproval(code: code, requestId: requestId)
                         self.startPollingForApproval()
                     }
@@ -182,12 +250,18 @@ class GatewayConnection: NSObject, ObservableObject {
                     )
 
                     self.pairingState = .paired(token: token)
+                    self.connectionState = .connected
                 }
             }
         }
     }
 
     private func verifyPairing(token: String) {
+        guard isHandshakeComplete else {
+            print("Waiting for connect handshake before verifying")
+            return
+        }
+
         let params: [String: Any] = [
             "nodeId": deviceIdentity.nodeId,
             "token": token
@@ -250,7 +324,10 @@ class GatewayConnection: NSObject, ObservableObject {
         webSocketTask?.send(wsMessage) { error in
             if let error = error {
                 print("WebSocket send error: \(error)")
-                self.responseHandlers.removeValue(forKey: requestId)
+                Task { @MainActor in
+                    self.responseHandlers.removeValue(forKey: requestId)
+                    completion(["error": ["message": error.localizedDescription]])
+                }
             }
         }
 
@@ -267,6 +344,10 @@ class GatewayConnection: NSObject, ObservableObject {
     func sendMessage(_ text: String, sessionKey: String? = nil) async throws {
         guard case .paired(let token) = pairingState else {
             throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not paired"])
+        }
+
+        guard isHandshakeComplete else {
+            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
         }
 
         let agentId = currentAgent?.id ?? "main"
@@ -316,6 +397,10 @@ class GatewayConnection: NSObject, ObservableObject {
     func sendLocation(_ location: LocationShare, sessionKey: String? = nil) async throws {
         guard case .paired(let token) = pairingState else {
             throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not paired"])
+        }
+
+        guard isHandshakeComplete else {
+            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
         }
 
         let agentId = currentAgent?.id ?? "main"
@@ -391,16 +476,37 @@ class GatewayConnection: NSObject, ObservableObject {
             return
         }
 
-        // Handle responses to our requests
+        // Handle EVENTS (type: "event")
+        if let type = json["type"] as? String, type == "event",
+           let event = json["event"] as? String {
+            handleEvent(event: event, message: json)
+            return
+        }
+
+        // Handle RPC responses (jsonrpc: "2.0", id: "...")
         if let id = json["id"] as? String,
            let handler = responseHandlers.removeValue(forKey: id) {
             handler(json)
             return
         }
 
-        // Handle server-initiated messages
+        // Handle server-initiated RPC methods (method: "...")
         if let method = json["method"] as? String {
             handleServerMessage(method: method, message: json)
+        }
+    }
+
+    private func handleEvent(event: String, message: [String: Any]) {
+        switch event {
+        case "connect.challenge":
+            if let payload = message["payload"] as? [String: Any],
+               let nonce = payload["nonce"] as? String {
+                print("Received connect.challenge with nonce")
+                handleConnectChallenge(nonce: nonce)
+            }
+
+        default:
+            print("Unhandled event: \(event)")
         }
     }
 
@@ -481,6 +587,7 @@ class GatewayConnection: NSObject, ObservableObject {
 
     private func handleConnectionError(_ error: Error) {
         connectionState = .failed(error.localizedDescription)
+        isHandshakeComplete = false
         scheduleReconnect()
     }
 
@@ -510,19 +617,12 @@ extension GatewayConnection: URLSessionWebSocketDelegate {
         webSocketTask: URLSessionWebSocketTask,
         didOpenWithProtocol protocol: String?
     ) {
-        print("WebSocket connected")
+        print("WebSocket connected, waiting for connect.challenge")
         Task { @MainActor in
-            self.connectionState = .connected
             self.reconnectAttempt = 0
             self.isReceiving = false
             self.receiveMessages()
-
-            // Start pairing or verify existing token
-            if case .paired(let token) = self.pairingState {
-                self.verifyPairing(token: token)
-            } else {
-                self.requestPairing()
-            }
+            // Don't set connectionState to .connected yet - wait for handshake
         }
     }
 
@@ -535,6 +635,7 @@ extension GatewayConnection: URLSessionWebSocketDelegate {
         print("WebSocket disconnected: \(closeCode)")
         Task { @MainActor in
             self.connectionState = .disconnected
+            self.isHandshakeComplete = false
             self.scheduleReconnect()
         }
     }

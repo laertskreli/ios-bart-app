@@ -427,6 +427,11 @@ struct MessageBubble: View {
             Text("sent")
                 .font(.system(size: 9, weight: .medium))
                 .foregroundStyle(.white.opacity(0.5))
+        case .received:
+            // Agent acknowledged - show "received" text
+            Text("received")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
         case .failed:
             // Failed - red text with icon
             HStack(spacing: 2) {

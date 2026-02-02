@@ -5,7 +5,8 @@ import Foundation
 enum MessageDeliveryStatus: String, Codable {
     case pending    // Message created locally, not yet sent
     case sending    // RPC call in progress
-    case delivered  // Server ACK received
+    case delivered  // Server ACK received (sent)
+    case received   // Agent acknowledged (received response)
     case failed     // RPC failed or timed out
 }
 

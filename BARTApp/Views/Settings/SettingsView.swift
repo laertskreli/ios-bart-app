@@ -18,7 +18,6 @@ struct SettingsView: View {
                     deviceSection
                     notificationsSection
                     agentSection
-                    subAgentsSection
                     chatSection
                     debugSection
                     dangerZoneSection
@@ -138,23 +137,6 @@ struct SettingsView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
-                }
-            }
-        }
-    }
-
-    private var subAgentsSection: some View {
-        SettingsSection(title: "Sub-Agents", icon: "bubble.left.and.bubble.right") {
-            if gateway.subAgents.isEmpty {
-                HStack {
-                    Text("No active sub-agents")
-                        .foregroundStyle(.tertiary)
-                    Spacer()
-                }
-                .padding(.vertical, 8)
-            } else {
-                ForEach(gateway.subAgents) { subAgent in
-                    SubAgentRow(subAgent: subAgent)
                 }
             }
         }
@@ -482,49 +464,6 @@ struct SettingsRow<Content: View>: View {
             Text(label)
             Spacer()
             content
-        }
-    }
-}
-
-struct SubAgentRow: View {
-    let subAgent: SubAgentInfo
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(subAgent.label)
-                    .font(.subheadline.bold())
-
-                Text(subAgent.task)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            Text(subAgent.status.rawValue.capitalized)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Capsule().fill(.ultraThinMaterial))
-        }
-        .padding(.vertical, 4)
-    }
-
-    private var statusColor: Color {
-        switch subAgent.status {
-        case .running:
-            return .green
-        case .completed:
-            return .blue
-        case .failed:
-            return .red
         }
     }
 }

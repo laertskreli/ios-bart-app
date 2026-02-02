@@ -1193,6 +1193,16 @@ class GatewayConnection: NSObject, ObservableObject {
         saveConversations()
     }
 
+    /// Marks the last user message in the conversation as "received" when agent responds
+    private func markLastUserMessageAsReceived(sessionKey: String) {
+        guard var conversation = conversations[sessionKey] else { return }
+        // Find the last user message that was delivered (sent)
+        if let index = conversation.messages.lastIndex(where: { $0.role == .user && $0.deliveryStatus == .delivered }) {
+            conversation.messages[index].deliveryStatus = .received
+            conversations[sessionKey] = conversation
+        }
+    }
+
     /// Sends an attachment (image or file) to the chat
     func sendAttachment(_ attachment: AttachmentItem, sessionKey: String? = nil) async throws {
         guard connectionState == .connected else {
@@ -1780,9 +1790,10 @@ class GatewayConnection: NSObject, ObservableObject {
 
         switch state {
         case "start", "thinking":
-            // Bot started processing - show typing indicator
+            // Bot started processing - show typing indicator and mark message as received
             Task { @MainActor in
                 self.isBotTyping[sessionKey] = true
+                self.markLastUserMessageAsReceived(sessionKey: sessionKey)
             }
 
         case "delta":
@@ -1900,6 +1911,8 @@ class GatewayConnection: NSObject, ObservableObject {
         )
 
         Task { @MainActor in
+            // Mark the last user message as "received" since agent responded
+            self.markLastUserMessageAsReceived(sessionKey: sessionKey)
             self.addMessageToConversation(agentMessage, sessionKey: sessionKey)
 
             // Send notification if app is in background

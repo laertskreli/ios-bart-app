@@ -206,7 +206,7 @@ struct ChatThreadView: View {
                 isInputFocused = true
             }
         }
-        .background(Color(.systemBackground))
+        .background(ChatBackgroundGradient())
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             // Left: Connection status indicator (liquid glass circle with dot)

@@ -551,15 +551,31 @@ struct ChatThreadView: View {
         }
 
         Task {
-            // Send attachments first if any
-            for attachment in currentAttachments {
-                try? await gateway.sendAttachment(attachment, sessionKey: currentSessionKey)
+            // Send attachments first if any (with delay between each to avoid overwhelming server)
+            var attachmentErrors: [String] = []
+            for (index, attachment) in currentAttachments.enumerated() {
+                do {
+                    try await gateway.sendAttachment(attachment, sessionKey: currentSessionKey)
+                    // Small delay between attachments to prevent rate limiting
+                    if index < currentAttachments.count - 1 {
+                        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                    }
+                } catch {
+                    attachmentErrors.append(attachment.filename)
+                    print("⚠️ Failed to send attachment \(attachment.filename): \(error)")
+                }
             }
 
             // Build message with reply context
             var messageToSend = text
             if let context = replyContext {
                 messageToSend = context + "\n\n" + text
+            }
+
+            // Add note about failed attachments if any
+            if !attachmentErrors.isEmpty {
+                let failedNote = "[Note: \(attachmentErrors.count) attachment(s) failed to send]"
+                messageToSend = messageToSend.isEmpty ? failedNote : messageToSend + "\n\n" + failedNote
             }
 
             // Then send text if any

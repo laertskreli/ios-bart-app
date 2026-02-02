@@ -875,6 +875,44 @@ struct SessionPickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    // Group sessions: main sessions first, then subagents nested under their parent
+    private var groupedSessions: [(session: SessionInfo, isNested: Bool)] {
+        var result: [(session: SessionInfo, isNested: Bool)] = []
+
+        // First pass: add non-subagent sessions
+        let mainSessions = sessions.filter { !$0.isSubagent }
+        let subagentSessions = sessions.filter { $0.isSubagent }
+
+        for mainSession in mainSessions {
+            result.append((mainSession, false))
+
+            // Find subagents that belong to this parent
+            // Subagent keys look like "agent:main:subagent:xxx" - parent would be "agent:main"
+            let matchingSubagents = subagentSessions.filter { subagent in
+                // Check if subagent key starts with similar prefix as main session
+                let subagentParts = subagent.sessionKey.components(separatedBy: ":subagent:")
+                if subagentParts.count > 1 {
+                    let parentPrefix = subagentParts[0]
+                    return mainSession.sessionKey.hasPrefix(parentPrefix) ||
+                           parentPrefix.hasPrefix(mainSession.sessionKey.replacingOccurrences(of: "-chat", with: ""))
+                }
+                return false
+            }
+
+            for subagent in matchingSubagents {
+                result.append((subagent, true))
+            }
+        }
+
+        // Add any orphaned subagents (without matching parent)
+        let addedSubagentKeys = Set(result.filter { $0.isNested }.map { $0.session.sessionKey })
+        for subagent in subagentSessions where !addedSubagentKeys.contains(subagent.sessionKey) {
+            result.append((subagent, true))
+        }
+
+        return result
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -882,8 +920,8 @@ struct SessionPickerSheet: View {
                     Text("No active sessions")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(sessions, id: \.id) { session in
-                        sessionRowView(for: session)
+                    ForEach(groupedSessions, id: \.session.id) { item in
+                        sessionRowView(for: item.session, isNested: item.isNested)
                     }
                 }
             }
@@ -900,16 +938,30 @@ struct SessionPickerSheet: View {
     }
 
     @ViewBuilder
-    private func sessionRowView(for session: SessionInfo) -> some View {
+    private func sessionRowView(for session: SessionInfo, isNested: Bool = false) -> some View {
         Button {
             onSelect(session)
         } label: {
             HStack(spacing: 12) {
+                // Indent nested subagents
+                if isNested {
+                    // Connector line for visual hierarchy
+                    HStack(spacing: 4) {
+                        Rectangle()
+                            .fill(Color.secondary.opacity(0.3))
+                            .frame(width: 2, height: 24)
+                            .padding(.leading, 8)
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 // Channel icon with color
                 Image(systemName: session.icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: isNested ? 16 : 20))
                     .foregroundStyle(colorFromName(session.colorName))
-                    .frame(width: 32, height: 32)
+                    .frame(width: isNested ? 26 : 32, height: isNested ? 26 : 32)
                     .background(
                         Circle()
                             .fill(colorFromName(session.colorName).opacity(0.15))
@@ -918,12 +970,12 @@ struct SessionPickerSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(session.friendlyName)
-                            .font(.body)
+                            .font(isNested ? .subheadline : .body)
                             .fontWeight(.medium)
                             .foregroundStyle(.primary)
 
                         // Category badge for non-agent sessions
-                        if session.category != .agent {
+                        if session.category != .agent && !isNested {
                             Text(session.category.displayName)
                                 .font(.caption2)
                                 .fontWeight(.medium)

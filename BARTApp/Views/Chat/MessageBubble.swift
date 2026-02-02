@@ -271,7 +271,7 @@ struct MessageBubble: View {
     private var hasRichComponents: Bool {
         parsedBlocks.contains { block in
             switch block {
-            case .resolved, .calendarSchedule, .calendar, .tasks, .chart, .form, .emailDraft, .code:
+            case .resolved, .calendarSchedule, .calendar, .tasks, .chart, .form, .emailDraft, .code, .file, .contact, .location, .linkPreview:
                 return true
             default:
                 return false

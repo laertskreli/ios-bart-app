@@ -1,0 +1,8 @@
+app_identifier("com.laert.clawtalk")
+apple_id("laertskreli@gmail.com")
+team_id("BNYLR7G8WV")
+
+# App Store Connect API Key
+for_lane :match do
+  api_key_path("fastlane/api_key.json")
+end

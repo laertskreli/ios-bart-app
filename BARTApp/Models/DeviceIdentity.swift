@@ -110,18 +110,19 @@ class DeviceIdentityManager {
 
     // Delete Ed25519 key pair from Keychain (for complete reset)
     func deleteKeyPair() {
-        let query: [String: Any] = [
+        // Delete by account tag
+        let query1: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: keychainTag
         ]
-        let status = SecItemDelete(query as CFDictionary)
-        if status == errSecSuccess {
-            print("🗑️ Deleted Ed25519 key pair from Keychain")
-        } else if status == errSecItemNotFound {
-            print("ℹ️ No Ed25519 key found to delete")
-        } else {
-            print("⚠️ Failed to delete Ed25519 key: \(status)")
-        }
+        SecItemDelete(query1 as CFDictionary)
+        
+        // Also try to clear ALL generic passwords (nuclear option for reset)
+        let query2: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword
+        ]
+        let status = SecItemDelete(query2 as CFDictionary)
+        print("🗑️ Cleared all keychain entries (status: \(status))")
     }
 
     // Check if key pair exists

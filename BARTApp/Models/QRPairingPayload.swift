@@ -24,33 +24,50 @@ struct QRPairingPayload: Codable {
 
     /// Decode from base64-encoded JSON string (QR code content)
     static func decode(from qrContent: String) throws -> QRPairingPayload {
+        print("🔓 QRPairingPayload.decode() called")
+
         // First try: content might be raw JSON
         if qrContent.hasPrefix("{") {
+            print("🔓 Detected raw JSON format")
             guard let data = qrContent.data(using: .utf8) else {
+                print("🔓 ❌ Failed to convert raw JSON to UTF8 data")
                 throw QRPairingError.invalidBase64
             }
-            return try JSONDecoder().decode(QRPairingPayload.self, from: data)
+            print("🔓 Attempting to decode raw JSON...")
+            let payload = try JSONDecoder().decode(QRPairingPayload.self, from: data)
+            print("🔓 ✅ Successfully decoded raw JSON")
+            return payload
         }
 
+        print("🔓 Attempting standard base64 decode...")
         // Second try: base64 encoded JSON
         guard let data = Data(base64Encoded: qrContent) else {
+            print("🔓 Standard base64 failed, trying URL-safe base64...")
             // Try URL-safe base64
             let urlSafe = qrContent
                 .replacingOccurrences(of: "-", with: "+")
                 .replacingOccurrences(of: "_", with: "/")
 
+            print("🔓 URL-safe conversion done, adding padding if needed...")
             // Add padding if needed
             let padded = urlSafe.padding(toLength: ((urlSafe.count + 3) / 4) * 4,
                                           withPad: "=",
                                           startingAt: 0)
 
             guard let paddedData = Data(base64Encoded: padded) else {
+                print("🔓 ❌ URL-safe base64 decode failed")
                 throw QRPairingError.invalidBase64
             }
-            return try JSONDecoder().decode(QRPairingPayload.self, from: paddedData)
+            print("🔓 ✅ URL-safe base64 decoded, attempting JSON decode...")
+            let payload = try JSONDecoder().decode(QRPairingPayload.self, from: paddedData)
+            print("🔓 ✅ Successfully decoded URL-safe base64 JSON")
+            return payload
         }
 
-        return try JSONDecoder().decode(QRPairingPayload.self, from: data)
+        print("🔓 ✅ Standard base64 decoded, attempting JSON decode...")
+        let payload = try JSONDecoder().decode(QRPairingPayload.self, from: data)
+        print("🔓 ✅ Successfully decoded standard base64 JSON")
+        return payload
     }
 }
 

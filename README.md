@@ -1,12 +1,12 @@
-# BART iOS App
+# Claw Talk iOS App
 
-A personal iOS messaging app that connects to BART, your AI agent running on OpenClaw.
+A personal iOS messaging app that connects to Claw Talk, your AI agent running on OpenClaw.
 
 ## Features
 
 - **Secure Connection**: Connects via Tailscale (WireGuard encrypted)
 - **Node Pairing**: Uses OpenClaw's native pairing system
-- **Streaming Responses**: See BART's response as it types
+- **Streaming Responses**: See Claw Talk's response as it types
 - **Sub-Agent Tabs**: Visual tabs for parallel work streams (power user mode)
 - **Location Sharing**: Share your location with configurable TTL
 - **Liquid Glass UI**: Modern, minimalist design with translucent elements
@@ -22,7 +22,7 @@ A personal iOS messaging app that connects to BART, your AI agent running on Ope
 
 ### 1. Configure Gateway Host
 
-Edit `BARTApp/Configuration.swift` and replace the gateway host with your Tailscale hostname:
+Edit `Claw TalkApp/Configuration.swift` and replace the gateway host with your Tailscale hostname:
 
 ```swift
 return "your-mac-mini.tailnet-name.ts.net"
@@ -77,7 +77,7 @@ return "your-mac-mini.tailnet-name.ts.net"
 │  │              ws://<tailscale-ip>:18789                  ││
 │  │                                                         ││
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐             ││
-│  │  │  BART    │  │ SubAgent │  │ SubAgent │  ...        ││
+│  │  │  Claw Talk    │  │ SubAgent │  │ SubAgent │  ...        ││
 │  │  │  (main)  │  │ (research)│ │ (tasks)  │             ││
 │  │  └──────────┘  └──────────┘  └──────────┘             ││
 │  └─────────────────────────────────────────────────────────┘│
@@ -96,8 +96,8 @@ return "your-mac-mini.tailnet-name.ts.net"
 ## Project Structure
 
 ```
-BARTApp/
-├── BARTApp.swift           # App entry point
+Claw TalkApp/
+├── Claw TalkApp.swift           # App entry point
 ├── Configuration.swift     # Gateway configuration
 ├── Info.plist
 ├── Assets.xcassets/
@@ -137,7 +137,7 @@ BARTApp/
 
 ## Building
 
-1. Open `BARTApp.xcodeproj` in Xcode
+1. Open `Claw TalkApp.xcodeproj` in Xcode
 2. Select your development team in Signing & Capabilities
 3. Build and run on your device or simulator
 

@@ -885,8 +885,10 @@ struct SessionPickerSheet: View {
 
 struct TypingIndicatorBubble: View {
     @State private var phase: Int = 0
+    @State private var timerCancellable: AnyCancellable?
 
-    private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    // Don't autoconnect - we'll manage the timer lifecycle manually
+    private let timer = Timer.publish(every: 0.4, on: .main, in: .common)
 
     var body: some View {
         HStack {
@@ -908,6 +910,15 @@ struct TypingIndicatorBubble: View {
             )
 
             Spacer(minLength: 60)
+        }
+        .onAppear {
+            // Start timer when view appears
+            timerCancellable = timer.connect() as? AnyCancellable
+        }
+        .onDisappear {
+            // Cancel timer when view disappears to prevent memory leak
+            timerCancellable?.cancel()
+            timerCancellable = nil
         }
         .onReceive(timer) { _ in
             phase = (phase + 1) % 3

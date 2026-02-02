@@ -1,6 +1,7 @@
 import Foundation
 import Combine
 import UIKit
+import Security
 
 @MainActor
 class GatewayConnection: NSObject, ObservableObject {
@@ -50,10 +51,24 @@ class GatewayConnection: NSObject, ObservableObject {
 
     // MARK: - Init
 
+    private static let forceResetVersion = "v5_nuclear_2026_02_02"  // Increment to force another reset
+
     init(gatewayHost: String, port: Int = 443, useSSL: Bool = true) {
         self.gatewayHost = gatewayHost
         self.port = port
         self.useSSL = useSSL
+
+        // Force a complete reset if we haven't done so for this version
+        // This clears all stale cached data that causes nonce mismatch errors
+        let lastResetVersion = UserDefaults.standard.string(forKey: "openclaw-reset-version")
+        if lastResetVersion != Self.forceResetVersion {
+            print("🧹 FORCE RESET: Clearing ALL cached pairing/connection data...")
+            Self.performForceReset()
+            UserDefaults.standard.set(Self.forceResetVersion, forKey: "openclaw-reset-version")
+            UserDefaults.standard.synchronize()
+            print("🧹 FORCE RESET: Complete. Starting fresh.")
+        }
+
         self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
 
         super.init()
@@ -62,7 +77,7 @@ class GatewayConnection: NSObject, ObservableObject {
         config.waitsForConnectivity = true
         self.urlSession = URLSession(configuration: config, delegate: self, delegateQueue: nil)
 
-        // Load saved device token for authentication
+        // After force reset, there will be no saved token - start unpaired
         let keychainAccount = "openclaw-\(deviceIdentity.nodeId)"
         print("🔍 Looking for saved token with key: \(keychainAccount)")
 
@@ -76,12 +91,51 @@ class GatewayConnection: NSObject, ObservableObject {
             print("⚠️ No saved token found - will need to pair")
         }
 
-        // Load saved gateway config
-        loadSavedGatewayConfig()
         print("🌐 Gateway config: \(gatewayHost):\(port), SSL: \(useSSL)")
 
         // Load saved conversations
         loadSavedConversations()
+    }
+
+    /// Performs a complete reset of all cached pairing/connection data
+    private static func performForceReset() {
+        // 1. Clear gateway config from UserDefaults
+        UserDefaults.standard.removeObject(forKey: "openclaw-gateway-config")
+        print("   ✓ Cleared gateway config")
+
+        // 2. Clear device identity from UserDefaults
+        UserDefaults.standard.removeObject(forKey: DeviceIdentity.storageKey)
+        print("   ✓ Cleared device identity")
+
+        // 3. Clear conversations
+        UserDefaults.standard.removeObject(forKey: "openclaw-conversations")
+        print("   ✓ Cleared conversations")
+
+        // 4. Clear push token references
+        UserDefaults.standard.removeObject(forKey: "pendingPushToken")
+        UserDefaults.standard.removeObject(forKey: "apnsDeviceToken")
+        print("   ✓ Cleared push tokens")
+
+        // 5. Delete Ed25519 key pair (will be regenerated)
+        DeviceIdentityManager.shared.deleteKeyPair()
+        print("   ✓ Deleted Ed25519 key pair")
+
+        // 6. Clear ALL keychain entries for this service
+        let keychainService = "openclaw-node-token"
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        if status == errSecSuccess {
+            print("   ✓ Cleared all keychain entries for \(keychainService)")
+        } else if status == errSecItemNotFound {
+            print("   ✓ No keychain entries to clear")
+        } else {
+            print("   ⚠️ Keychain clear status: \(status)")
+        }
+
+        UserDefaults.standard.synchronize()
     }
 
     // MARK: - Gateway Configuration
@@ -99,14 +153,25 @@ class GatewayConnection: NSObject, ObservableObject {
     }
 
     func connectWithQRPayload(_ payload: QRPairingPayload) {
+        print("🔌 connectWithQRPayload() called")
+        print("🔌 Payload gateway URL: \(payload.gatewayUrl)")
+        print("🔌 Payload role: \(payload.role)")
+
         guard let config = payload.hostAndPort else {
+            print("🔌 ❌ Failed to parse host and port from gateway URL")
             connectionState = .failed("Invalid gateway URL in QR code")
             return
         }
 
+        print("🔌 ✅ Parsed connection config:")
+        print("🔌   Host: \(config.host)")
+        print("🔌   Port: \(config.port)")
+        print("🔌   SSL: \(config.useSSL)")
+
         self.gatewayHost = config.host
         self.port = config.port
         self.useSSL = config.useSSL
+
         // Use token from QR code if present
         if let token = payload.token, !token.isEmpty {
             self.gatewayToken = token
@@ -115,9 +180,18 @@ class GatewayConnection: NSObject, ObservableObject {
         } else {
             print("⚠️ QR code has no token")
         }
-        self.verificationCode = payload.verificationCode
-        saveGatewayConfig()
 
+        if let verificationCode = payload.verificationCode {
+            self.verificationCode = verificationCode
+            print("🔐 Got verification code from QR: \(String(verificationCode.prefix(10)))...")
+        } else {
+            print("⚠️ No verification code in QR payload")
+        }
+
+        saveGatewayConfig()
+        print("🔌 Gateway config saved")
+
+        print("🔌 Calling connect()...")
         connect()
     }
 
@@ -133,23 +207,40 @@ class GatewayConnection: NSObject, ObservableObject {
         }
     }
 
+    /// Clears cached gateway config if it contains a stale/different host than current config
+    private func clearStaleGatewayConfig() {
+        guard let data = UserDefaults.standard.data(forKey: gatewayConfigKey),
+              let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let cachedHost = config["host"] as? String else {
+            return
+        }
+
+        // If cached host differs from current config, clear it entirely
+        if cachedHost != self.gatewayHost {
+            print("🧹 Clearing stale gateway config (was: \(cachedHost), now: \(self.gatewayHost))")
+            UserDefaults.standard.removeObject(forKey: gatewayConfigKey)
+            UserDefaults.standard.synchronize()
+        }
+    }
+
     private func loadSavedGatewayConfig() {
         guard let data = UserDefaults.standard.data(forKey: gatewayConfigKey),
               let config = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return
         }
 
-        if let host = config["host"] as? String {
-            self.gatewayHost = host
-        }
-        if let port = config["port"] as? Int {
-            self.port = port
-        }
-        if let useSSL = config["useSSL"] as? Bool {
-            self.useSSL = useSSL
-        }
-        if let token = config["token"] as? String {
+        // NOTE: We intentionally do NOT load host/port/useSSL from cache anymore.
+        // These should always come from Configuration.swift or a fresh QR scan.
+        // This prevents stale gateway addresses from being used after config changes.
+        // Only load the authentication token from cache.
+        if let token = config["token"] as? String, !token.isEmpty {
             self.gatewayToken = token
+            print("🔑 Loaded cached auth token")
+        }
+
+        // Log what we're ignoring for debugging
+        if let cachedHost = config["host"] as? String, cachedHost != self.gatewayHost {
+            print("⚠️ Ignoring cached gateway host '\(cachedHost)' - using '\(self.gatewayHost)' from config")
         }
     }
 
@@ -219,9 +310,16 @@ class GatewayConnection: NSObject, ObservableObject {
     // MARK: - Connection
 
     func connect() {
-        guard connectionState == .disconnected ||
-              (connectionState != .connecting && connectionState != .connected) else { return }
+        print("🔌 connect() called")
+        print("🔌 Current state: \(connectionState)")
 
+        guard connectionState == .disconnected ||
+              (connectionState != .connecting && connectionState != .connected) else {
+            print("🔌 ⚠️ Already connecting or connected, ignoring")
+            return
+        }
+
+        print("🔌 Setting state to connecting...")
         connectionState = .connecting
         isHandshakeComplete = false
         connectNonce = nil
@@ -230,7 +328,14 @@ class GatewayConnection: NSObject, ObservableObject {
         let scheme = useSSL ? "wss" : "ws"
         let urlString = "\(scheme)://\(gatewayHost):\(port)"
 
-        print("🔌 Connecting to: \(urlString)")
+        print("🔌 Building WebSocket URL: \(urlString)")
+        print("🔌 Connection parameters:")
+        print("🔌   - Scheme: \(scheme)")
+        print("🔌   - Host: \(gatewayHost)")
+        print("🔌   - Port: \(port)")
+        print("🔌   - SSL: \(useSSL)")
+        print("🔌   - Has token: \(!gatewayToken.isEmpty)")
+        print("🔌   - Has verification code: \(verificationCode != nil)")
 
         guard let url = URL(string: urlString) else {
             print("❌ Invalid gateway URL: \(urlString)")
@@ -238,18 +343,23 @@ class GatewayConnection: NSObject, ObservableObject {
             return
         }
 
+        print("🔌 ✅ URL is valid")
+
         var request = URLRequest(url: url)
         request.timeoutInterval = 15  // 15 second timeout
+        print("🔌 Creating WebSocket task...")
         webSocketTask = urlSession.webSocketTask(with: request)
+        print("🔌 Resuming WebSocket task...")
         webSocketTask?.resume()
-        print("🔌 WebSocket task started")
-        print("🔌 Gateway host: \(gatewayHost), port: \(port), SSL: \(useSSL)")
+        print("🔌 ✅ WebSocket task started successfully")
+        print("🔌 Waiting for connection to establish...")
 
         // Connection timeout - if not connected after 15 seconds, fail
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
             guard let self = self else { return }
             if case .connecting = self.connectionState {
-                print("⏰ Connection timeout - no response from gateway")
+                print("⏰ Connection timeout - no response from gateway after 15 seconds")
+                print("⏰ WebSocket task state: \(String(describing: self.webSocketTask?.state))")
                 self.connectionState = .failed("Connection timeout - gateway not reachable")
                 self.webSocketTask?.cancel()
             }
@@ -285,8 +395,11 @@ class GatewayConnection: NSObject, ObservableObject {
         // Request extended background execution time
         backgroundTaskId = UIApplication.shared.beginBackgroundTask(withName: "CleanDisconnect") { [weak self] in
             // Expiration handler - system is about to kill background time
+            // Must dispatch to MainActor since this callback may come from background thread
             print("⏰ Background time expiring, ending task")
-            self?.endBackgroundTask()
+            Task { @MainActor in
+                self?.endBackgroundTask()
+            }
         }
 
         print("🌙 Background task started (ID: \(backgroundTaskId.rawValue)), keeping connection briefly...")
@@ -313,9 +426,14 @@ class GatewayConnection: NSObject, ObservableObject {
             let timeSinceLastActive = lastActiveTimestamp.map { Date().timeIntervalSince($0) } ?? 0
 
             if connectionState != .connected && connectionState != .connecting {
-                print("☀️ App active, reconnecting... (was inactive for \(Int(timeSinceLastActive))s)")
-                reconnectAttempt = 0  // Reset reconnect counter
-                connect()
+                // Only auto-connect if we have a token (means we're paired)
+                if !gatewayToken.isEmpty {
+                    print("☀️ App active, reconnecting... (was inactive for \(Int(timeSinceLastActive))s)")
+                    reconnectAttempt = 0  // Reset reconnect counter
+                    connect()
+                } else {
+                    print("☀️ App active but not paired - waiting for QR scan")
+                }
             }
 
             // Fetch latest messages to catch up on anything missed
@@ -875,11 +993,11 @@ class GatewayConnection: NSObject, ObservableObject {
         responseHandlers[requestId] = completion
 
         let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
-        webSocketTask?.send(wsMessage) { error in
+        webSocketTask?.send(wsMessage) { [weak self] error in
             if let error = error {
                 print("❌ WebSocket send error: \(error)")
-                Task { @MainActor in
-                    self.responseHandlers.removeValue(forKey: requestId)
+                Task { @MainActor [weak self] in
+                    self?.responseHandlers.removeValue(forKey: requestId)
                     completion(["error": ["message": error.localizedDescription]])
                 }
             } else {
@@ -1435,8 +1553,12 @@ class GatewayConnection: NSObject, ObservableObject {
     // MARK: - Receive & Parse
 
     private func receiveMessages() {
-        guard !isReceiving else { return }
+        guard !isReceiving else {
+            print("📥 Already receiving messages, skipping")
+            return
+        }
         isReceiving = true
+        print("📥 Setting up message receive handler...")
 
         webSocketTask?.receive { [weak self] result in
             guard let self = self else { return }
@@ -1446,29 +1568,52 @@ class GatewayConnection: NSObject, ObservableObject {
 
                 switch result {
                 case .success(let message):
+                    print("📥 ✅ Received WebSocket message")
                     self.handleMessage(message)
                     self.receiveMessages()
 
                 case .failure(let error):
+                    print("📥 ❌ WebSocket receive error: \(error.localizedDescription)")
                     self.handleConnectionError(error)
                 }
             }
         }
+        print("📥 Message receive handler set up, waiting for messages...")
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
+        print("📦 handleMessage() called")
         let data: Data
         switch message {
         case .data(let d):
+            print("📦 Message type: binary data (\(d.count) bytes)")
             data = d
         case .string(let s):
+            print("📦 Message type: string (\(s.count) characters)")
+            print("📦 Message content: \(s.prefix(200))\(s.count > 200 ? "..." : "")")
             data = s.data(using: .utf8) ?? Data()
         @unknown default:
+            print("📦 ⚠️ Unknown message type")
             return
         }
 
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("📦 ❌ Failed to parse message as JSON")
+            if let str = String(data: data, encoding: .utf8) {
+                print("📦 Raw content: \(str)")
+            }
             return
+        }
+
+        print("📦 ✅ Parsed JSON message")
+        if let type = json["type"] as? String {
+            print("📦 Message type: \(type)")
+        }
+        if let method = json["method"] as? String {
+            print("📦 Message method: \(method)")
+        }
+        if let id = json["id"] as? String {
+            print("📦 Message id: \(id)")
         }
 
         // Handle EVENTS - multiple formats
@@ -1595,35 +1740,36 @@ class GatewayConnection: NSObject, ObservableObject {
             }
 
         case "final":
-            // Response complete
-            Task { @MainActor in
-                self.isBotTyping[sessionKey] = false
-                self.finalizeStreamingMessage(sessionKey: sessionKey)
-            }
-
-            // Check if message content is in the payload
+            // Response complete - extract content first (can be done off main thread)
+            var fullText = ""
             if let message = payload["message"] as? [String: Any],
                let content = message["content"] as? [[String: Any]] {
-
-                var fullText = ""
                 for item in content {
                     if let text = item["text"] as? String {
                         fullText += text
                     }
                 }
+            }
+            let runId = payload["runId"] as? String
 
+            // All state mutations and reads must be on MainActor to avoid race conditions
+            Task { @MainActor in
+                self.isBotTyping[sessionKey] = false
+                self.finalizeStreamingMessage(sessionKey: sessionKey)
+
+                // Check if message content was in the payload
                 if !fullText.isEmpty {
                     // Only add if we don't already have a streaming message with this content
-                    if streamingMessageIds[sessionKey] == nil {
+                    if self.streamingMessageIds[sessionKey] == nil {
                         print("💬 Agent response (inline): \(fullText.prefix(100))...")
-                        addAgentResponseToUI(fullText, sessionKey: sessionKey)
+                        self.addAgentResponseToUI(fullText, sessionKey: sessionKey)
                     }
-                }
-            } else if streamingMessageIds[sessionKey] == nil {
-                // No streaming message and no inline content - fetch via sessions.preview
-                print("💬 Final event received, fetching message via sessions.preview...")
-                if let runId = payload["runId"] as? String {
-                    fetchLatestMessage(sessionKey: sessionKey, runId: runId)
+                } else if self.streamingMessageIds[sessionKey] == nil {
+                    // No streaming message and no inline content - fetch via sessions.preview
+                    print("💬 Final event received, fetching message via sessions.preview...")
+                    if let runId = runId {
+                        self.fetchLatestMessage(sessionKey: sessionKey, runId: runId)
+                    }
                 }
             }
 
@@ -1985,11 +2131,12 @@ extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate
 
             // Generate our own nonce and send connect request immediately
             // Don't wait for connect.challenge - some gateways expect client to initiate
-            if self.connectNonce == nil {
-                self.connectNonce = UUID().uuidString
-                print("📤 Sending connect request with self-generated nonce")
-                self.sendConnectRequest()
-            }
+            // DISABLED: Wait for server challenge instead
+            // if self.connectNonce == nil {
+                // self.connectNonce = UUID().uuidString
+                // print("📤 Sending connect request with self-generated nonce")
+                // self.sendConnectRequest()
+            // }
         }
     }
 
@@ -2001,6 +2148,20 @@ extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate
     ) {
         let reasonString = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
         print("⚠️ WebSocket disconnected: \(closeCode) reason: \(reasonString)")
+        
+        // Auto-recovery for nonce mismatch: clear stale credentials and re-pair
+        if reasonString.contains("nonce mismatch") || reasonString.contains("device nonce") {
+            print("🔄 Detected nonce mismatch - clearing stale credentials for fresh pairing")
+            DeviceIdentityManager.shared.deleteKeyPair()
+            UserDefaults.standard.removeObject(forKey: DeviceIdentity.storageKey)
+            Task { @MainActor in
+                self.connectionState = .disconnected
+                self.isHandshakeComplete = false
+                self.pairingState = .unpaired
+            }
+            return
+        }
+        
         Task { @MainActor in
             self.connectionState = .disconnected
             self.isHandshakeComplete = false

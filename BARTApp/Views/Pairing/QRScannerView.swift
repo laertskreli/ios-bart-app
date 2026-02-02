@@ -79,22 +79,38 @@ struct QRScannerView: View {
         guard !isProcessing else { return }
         isProcessing = true
 
+        print("📷 QR Code Scanned")
+        print("📷 Raw content length: \(code.count) characters")
+        print("📷 Raw content preview: \(String(code.prefix(100)))\(code.count > 100 ? "..." : "")")
+
         do {
+            print("📷 Attempting to decode QR payload...")
             let payload = try QRPairingPayload.decode(from: code)
+            print("📷 ✅ QR payload decoded successfully!")
+            print("📷 Gateway URL: \(payload.gatewayUrl)")
+            print("📷 Role: \(payload.role)")
+            print("📷 Has token: \(payload.token != nil)")
+            print("📷 Has verification code: \(payload.verificationCode != nil)")
+            print("📷 Expires at: \(Date(timeIntervalSince1970: Double(payload.expiresAt) / 1000))")
 
             if payload.isExpired {
+                print("📷 ❌ Payload is expired!")
                 error = .expired
                 isProcessing = false
                 return
             }
 
+            print("📷 ✅ Payload is valid and not expired")
+
             // Haptic feedback on success
             let generator = UINotificationFeedbackGenerator()
             generator.notificationOccurred(.success)
 
+            print("📷 Calling onScanned callback...")
             onScanned(payload)
             dismiss()
         } catch {
+            print("📷 ❌ Failed to decode QR payload: \(error)")
             self.error = .invalidJSON
             isProcessing = false
         }

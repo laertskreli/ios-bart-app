@@ -42,3 +42,7 @@ Carthage/Checkouts/
 !Release.xcconfig
 .env
 *.pem
+api_key.json
+fastlane/api_key.json
+fastlane/AuthKey_*.p8
+*.webp

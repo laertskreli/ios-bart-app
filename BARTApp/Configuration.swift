@@ -12,7 +12,7 @@ enum AppConfig {
         #if targetEnvironment(simulator)
         return "localhost"
         #else
-        // Use Tailscale IP - works from anywhere (home, cellular, etc.)
+        // Use Tailscale IP - Mac Mini where OpenClaw gateway runs
         return "100.102.89.44"
         #endif
     }()

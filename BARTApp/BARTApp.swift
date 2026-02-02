@@ -38,6 +38,14 @@ struct AppContentView: View {
         RootView()
             .preferredColorScheme(.dark)
             .onAppear {
+                // ONE-TIME FORCE RESET (remove after successful pairing)
+                let resetKey = "force_reset_feb02_2026"
+                if !UserDefaults.standard.bool(forKey: resetKey) {
+                    print("🔄 Performing one-time auth reset...")
+                    gateway.resetPairing()
+                    UserDefaults.standard.set(true, forKey: resetKey)
+                }
+                
                 // Give AppDelegate access to gateway for push token registration
                 appDelegate.gateway = gateway
 

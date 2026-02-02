@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDisplayName</key>
-    <string>BART</string>
+    <string>Claw Talk</string>
     <key>CFBundleName</key>
-    <string>BART</string>
+    <string>Claw Talk</string>
     <key>CFBundleIdentifier</key>
     <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
     <key>CFBundleVersion</key>
@@ -44,9 +44,9 @@
         <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>BART needs your location to share it with your AI assistant when you request location-based help.</string>
+    <string>Claw Talk needs your location to share it with your AI assistant when you request location-based help.</string>
     <key>NSCameraUsageDescription</key>
-    <string>BART needs camera access to scan QR codes for quick gateway pairing.</string>
+    <string>Claw Talk needs camera access to scan QR codes for quick gateway pairing.</string>
     <key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>

@@ -523,7 +523,20 @@ extension MessageBubble {
                 case .code(let component):
                     InteractiveCodeView(component: component, onAction: handleComponentAction)
 
-                default:
+                case .linkPreview(let component):
+                    InteractiveLinkPreviewView(component: component, onAction: handleComponentAction)
+
+                case .file(let component):
+                    InteractiveFileView(component: component, onAction: handleComponentAction)
+
+                case .contact(let component):
+                    InteractiveContactView(component: component, onAction: handleComponentAction)
+
+                case .location(let component):
+                    InteractiveLocationView(component: component, onAction: handleComponentAction)
+
+                case .text, .button, .buttonGroup, .options:
+
                     EmptyView()
                 }
             }

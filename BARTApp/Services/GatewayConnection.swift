@@ -17,6 +17,7 @@ class GatewayConnection: NSObject, ObservableObject {
     @Published private(set) var isBotTyping: [String: Bool] = [:]  // sessionKey -> isTyping
     @Published private(set) var activeSessions: [SessionInfo] = []  // All active sessions including subagents
     @Published private(set) var lastLatency: TimeInterval?  // Last measured round-trip latency
+    @Published private(set) var lastHeartbeat: Date?  // Last heartbeat received from gateway
 
     // Track streaming messages by session
     private var streamingMessageIds: [String: String] = [:]  // sessionKey -> messageId
@@ -1441,6 +1442,12 @@ class GatewayConnection: NSObject, ObservableObject {
                         participantName: participantName
                     )
                 }
+                // Filter out heartbeat channel from session list
+                .filter { session in
+                    let key = session.sessionKey.lowercased()
+                    let label = session.label.lowercased()
+                    return !key.contains("heartbeat") && !label.contains("heartbeat")
+                }
 
                 print("📋 [Sessions] Loaded \(self.activeSessions.count) sessions, polling: \(self.activePollingSessionKeys)")
 
@@ -1743,7 +1750,9 @@ class GatewayConnection: NSObject, ObservableObject {
 
         case "health", "tick":
             // Heartbeat events - connection is healthy
-            break
+            Task { @MainActor in
+                self.lastHeartbeat = Date()
+            }
 
         default:
             print("📨 Unhandled event: \(event)")

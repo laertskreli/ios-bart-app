@@ -716,7 +716,7 @@ struct ConnectionIndicator: View {
             isPulsing = isAnimating
         }
         .popover(isPresented: $showStatusPopup) {
-            ConnectionStatusPopup(state: state, latency: gateway.lastLatency)
+            ConnectionStatusPopup(state: state, latency: gateway.lastLatency, lastHeartbeat: gateway.lastHeartbeat)
                 .presentationCompactAdaptation(.popover)
         }
     }
@@ -727,6 +727,7 @@ struct ConnectionIndicator: View {
 struct ConnectionStatusPopup: View {
     let state: ConnectionState
     let latency: TimeInterval?
+    let lastHeartbeat: Date?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -750,6 +751,17 @@ struct ConnectionStatusPopup: View {
                 }
             }
 
+            if let heartbeat = lastHeartbeat, state.isConnected {
+                HStack(spacing: 6) {
+                    Image(systemName: "heart.fill")
+                        .font(.caption)
+                        .foregroundStyle(.pink)
+                    Text("Last heartbeat: \(heartbeatText(heartbeat))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if case .reconnecting(let attempt) = state {
                 Text("Attempt \(attempt) of 5")
                     .font(.caption)
@@ -765,6 +777,18 @@ struct ConnectionStatusPopup: View {
         }
         .padding()
         .frame(minWidth: 180)
+    }
+
+    private func heartbeatText(_ date: Date) -> String {
+        let seconds = Int(-date.timeIntervalSinceNow)
+        if seconds < 5 {
+            return "just now"
+        } else if seconds < 60 {
+            return "\(seconds)s ago"
+        } else {
+            let minutes = seconds / 60
+            return "\(minutes)m ago"
+        }
     }
 
     private var statusColor: Color {

@@ -410,43 +410,50 @@ struct MessageBubble: View {
         }
     }
 
-    /// Delivery indicator inside the bubble (bottom-right) - Made much smaller
+    /// Delivery indicator below the bubble - text-based status
     @ViewBuilder
     private var inBubbleDeliveryIndicator: some View {
         switch message.deliveryStatus {
         case .pending, .sending:
-            // Sending state - tiny pulsing outline
-            SendingIndicator()
+            // Sending state - animated text
+            HStack(spacing: 2) {
+                Text("sending")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.6))
+                SendingDots()
+            }
         case .delivered:
-            // Delivered - tiny green filled dot (much smaller than before)
-            Circle()
-                .fill(Color.white.opacity(0.6))
-                .frame(width: 5, height: 5)
+            // Delivered - show "sent" text
+            Text("sent")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(.white.opacity(0.5))
         case .failed:
-            // Failed - red exclamation mark, more visible
-            Image(systemName: "exclamationmark.circle.fill")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.red)
+            // Failed - red text with icon
+            HStack(spacing: 2) {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .font(.system(size: 9))
+                Text("failed")
+                    .font(.system(size: 9, weight: .medium))
+            }
+            .foregroundStyle(.red)
         }
     }
 }
 
-// MARK: - Sending Indicator (Pulsing dot)
+// MARK: - Sending Dots Animation (for "sending..." text)
 
-struct SendingIndicator: View {
-    @State private var isPulsing = false
+struct SendingDots: View {
+    @State private var dotCount = 0
+    private let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        Circle()
-            .stroke(Color.white.opacity(0.7), lineWidth: 1)
-            .frame(width: 6, height: 6)
-            .scaleEffect(isPulsing ? 1.2 : 0.8)
-            .opacity(isPulsing ? 1 : 0.5)
-            .animation(
-                .easeInOut(duration: 0.6).repeatForever(autoreverses: true),
-                value: isPulsing
-            )
-            .onAppear { isPulsing = true }
+        Text(String(repeating: ".", count: dotCount))
+            .font(.system(size: 9, weight: .medium))
+            .foregroundStyle(.white.opacity(0.6))
+            .frame(width: 12, alignment: .leading)
+            .onReceive(timer) { _ in
+                dotCount = (dotCount % 3) + 1
+            }
     }
 }
 

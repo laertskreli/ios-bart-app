@@ -10,6 +10,7 @@
 		A1000001 /* BARTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001 /* BARTApp.swift */; };
 		A1000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002 /* RootView.swift */; };
 		A1000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000003 /* Assets.xcassets */; };
+		A1000206 /* APNsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000206 /* APNsManager.swift */; };
 		A1000010 /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010 /* DeviceIdentity.swift */; };
 		A1000011 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* Conversation.swift */; };
 		A1000012 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* Message.swift */; };
@@ -84,6 +85,8 @@
 		A2000203 /* ContentResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentResolver.swift; sourceTree = "<group>"; };
 		A2000204 /* ResolvedComponentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResolvedComponentViews.swift; sourceTree = "<group>"; };
 		A2000205 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A2000206 /* APNsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APNsManager.swift; sourceTree = "<group>"; };
+		A2000207 /* BARTApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BARTApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,6 +116,7 @@
 				A2000205 /* AppDelegate.swift */,
 				A2000090 /* Configuration.swift */,
 				A2000004 /* Info.plist */,
+				A2000207 /* BARTApp.entitlements */,
 				A2000003 /* Assets.xcassets */,
 				A4000010 /* Models */,
 				A4000020 /* Services */,
@@ -150,6 +154,7 @@
 			children = (
 				A2000020 /* GatewayConnection.swift */,
 				A2000021 /* LocationManager.swift */,
+				A2000206 /* APNsManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -333,6 +338,7 @@
 				A1000203 /* ContentResolver.swift in Sources */,
 				A1000204 /* ResolvedComponentViews.swift in Sources */,
 				A1000205 /* AppDelegate.swift in Sources */,
+				A1000206 /* APNsManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -467,6 +473,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BARTApp/BARTApp.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				PROVISIONING_PROFILE_SPECIFIER = "match Development com.laert.bartapp";
 				CURRENT_PROJECT_VERSION = 1;
@@ -500,6 +507,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = BARTApp/BARTApp.entitlements;
 				CODE_SIGN_STYLE = Manual;
 				PROVISIONING_PROFILE_SPECIFIER = "match Development com.laert.bartapp";
 				CURRENT_PROJECT_VERSION = 1;

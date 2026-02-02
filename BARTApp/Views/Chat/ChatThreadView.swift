@@ -483,10 +483,8 @@ struct ChatThreadView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(
-                .ultraThinMaterial
-                    .ignoresSafeArea(edges: .bottom)
-            )
+            .background(.ultraThinMaterial)
+            .ignoresSafeArea(edges: .bottom)
         }
     }
 

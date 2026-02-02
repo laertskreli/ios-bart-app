@@ -6,6 +6,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     // Reference to gateway connection (set by BARTApp)
     weak var gateway: GatewayConnection?
 
+    // APNs manager for HTTP-based token registration
+    let apnsManager = APNsManager.shared
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -46,17 +49,17 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
     ) {
-        // Convert token to hex string
+        // Let APNsManager handle the token (includes HTTP registration)
+        apnsManager.handleDeviceToken(deviceToken)
+
+        // Convert token to hex string for WebSocket registration
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
 
         // Redact token for logging to prevent leaks
         let redactedToken = String(tokenString.prefix(8)) + "..." + String(tokenString.suffix(4))
-        print("📱 APNs device token: \(redactedToken)")
+        print("[AppDelegate] APNs device token: \(redactedToken)")
 
-        // Store token for later use
-        UserDefaults.standard.set(tokenString, forKey: "apnsDeviceToken")
-
-        // Send token to gateway if connected
+        // Also send token to gateway via WebSocket if connected (dual registration)
         Task { @MainActor in
             gateway?.registerPushToken(tokenString)
         }
@@ -73,7 +76,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("❌ Failed to register for APNs: \(error)")
+        print("[AppDelegate] Failed to register for APNs: \(error)")
+
+        // Let APNsManager handle the error
+        apnsManager.handleRegistrationError(error)
 
         // Common errors:
         // - Simulator doesn't support push notifications
@@ -88,7 +94,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         didReceiveRemoteNotification userInfo: [AnyHashable: Any],
         fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
     ) {
-        print("📬 Received remote notification: \(userInfo)")
+        print("[AppDelegate] Received remote notification: \(userInfo)")
+
+        // Let APNsManager handle background notifications
+        if application.applicationState != .active {
+            apnsManager.handleBackgroundNotification(userInfo, completionHandler: completionHandler)
+            return
+        }
 
         // Handle silent push notification
         if let aps = userInfo["aps"] as? [String: Any],
@@ -98,7 +110,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             return
         }
 
-        // Handle regular push with content
+        // Handle regular push with content (foreground)
+        apnsManager.handleForegroundNotification(userInfo)
         handlePushNotification(userInfo: userInfo)
         completionHandler(.newData)
     }

@@ -62,38 +62,39 @@ struct ChatThreadView: View {
                         if messages.isEmpty && !isBotTyping {
                             emptyStateView
                                 .frame(height: geometry.size.height * 0.6)
+                                .scaleEffect(y: -1)
                         } else {
-                            // Spacer to push content down initially
-                            Color.clear.frame(height: 1)
+                            // Bottom anchor for scrolling (now at top due to flip)
+                            Color.clear
+                                .frame(height: 1)
+                                .id("bottom")
 
-                            ForEach(messages) { message in
-                                MessageBubble(message: message, onComponentAction: handleComponentAction)
-                                    .id(message.id)
+                            // Connection status inline message
+                            if showConnectionToast {
+                                ConnectionStatusMessage()
+                                    .id("connection-status")
+                                    .scaleEffect(y: -1)
                             }
 
                             if isBotTyping {
                                 TypingIndicatorBubble()
                                     .id("typing-indicator")
+                                    .scaleEffect(y: -1)
+                            }
+
+                            ForEach(messages.reversed()) { message in
+                                MessageBubble(message: message, onComponentAction: handleComponentAction)
+                                    .id(message.id)
+                                    .scaleEffect(y: -1)
                             }
                         }
-
-                        // Connection status inline message
-                        if showConnectionToast {
-                            ConnectionStatusMessage()
-                                .id("connection-status")
-                        }
-
-                        // Bottom anchor for scrolling
-                        Color.clear
-                            .frame(height: 1)
-                            .id("bottom")
                     }
                     .padding(.horizontal)
                     .padding(.top, 8)
                     .padding(.bottom, 8)
                 }
+                .scaleEffect(y: -1)
                 .scrollDismissesKeyboard(.interactively)
-                .defaultScrollAnchor(.bottom)
                 .onTapGesture {
                     // Dismiss keyboard when tapping outside
                     isInputFocused = false

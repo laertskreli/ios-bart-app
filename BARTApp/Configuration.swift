@@ -2,7 +2,7 @@ import Foundation
 
 enum AppConfig {
 
-    /// The gateway host - Tailscale IP for anywhere access
+    /// The gateway host - Tailscale Serve URL for anywhere access
     static let gatewayHost: String = {
         // Check for environment variable first (useful for testing)
         if let envHost = ProcessInfo.processInfo.environment["BART_GATEWAY_HOST"] {
@@ -12,16 +12,16 @@ enum AppConfig {
         #if targetEnvironment(simulator)
         return "localhost"
         #else
-        // Use Tailscale IP - Mac Mini where OpenClaw gateway runs
-        return "100.102.89.44"
+        // Use Tailscale Serve URL - proxies to Mac Mini where OpenClaw gateway runs
+        return "treals-mac-mini.tail3eabbc.ts.net"
         #endif
     }()
 
-    /// The port for OpenClaw Gateway
-    static let gatewayPort: Int = 18789
+    /// The port for OpenClaw Gateway (443 for Tailscale Serve HTTPS)
+    static let gatewayPort: Int = 443
 
-    /// Use secure WebSocket - ws:// for local network
-    static let useSSL: Bool = false
+    /// Use secure WebSocket - wss:// for Tailscale Serve
+    static let useSSL: Bool = true
 
     /// Enable debug logging
     static let debugLogging: Bool = {

@@ -62,11 +62,15 @@ class GatewayConnection: NSObject, ObservableObject {
         // This clears all stale cached data that causes nonce mismatch errors
         let lastResetVersion = UserDefaults.standard.string(forKey: "openclaw-reset-version")
         if lastResetVersion != Self.forceResetVersion {
+            #if DEBUG
             print("🧹 FORCE RESET: Clearing ALL cached pairing/connection data...")
+            #endif
             Self.performForceReset()
             UserDefaults.standard.set(Self.forceResetVersion, forKey: "openclaw-reset-version")
             UserDefaults.standard.synchronize()
+            #if DEBUG
             print("🧹 FORCE RESET: Complete. Starting fresh.")
+            #endif
         }
 
         self.deviceIdentity = Self.loadOrCreateDeviceIdentity()
@@ -79,19 +83,27 @@ class GatewayConnection: NSObject, ObservableObject {
 
         // After force reset, there will be no saved token - start unpaired
         let keychainAccount = "openclaw-\(deviceIdentity.nodeId)"
+        #if DEBUG
         print("🔍 Looking for saved token with key: \(keychainAccount)")
+        #endif
 
         if let token = KeychainHelper.loadString(service: keychainService, account: keychainAccount) {
             self.pairingState = .paired(token: token)
             self.deviceIdentity.pairingToken = token
             self.gatewayToken = token  // Use saved device token for auth
+            #if DEBUG
             let tokenPreview = String(token.prefix(8)) + "..."
             print("🔑 Loaded saved device token: \(tokenPreview)")
+            #endif
         } else {
+            #if DEBUG
             print("⚠️ No saved token found - will need to pair")
+            #endif
         }
 
+        #if DEBUG
         print("🌐 Gateway config: \(gatewayHost):\(port), SSL: \(useSSL)")
+        #endif
 
         // Load saved conversations
         loadSavedConversations()
@@ -101,24 +113,19 @@ class GatewayConnection: NSObject, ObservableObject {
     private static func performForceReset() {
         // 1. Clear gateway config from UserDefaults
         UserDefaults.standard.removeObject(forKey: "openclaw-gateway-config")
-        print("   ✓ Cleared gateway config")
 
         // 2. Clear device identity from UserDefaults
         UserDefaults.standard.removeObject(forKey: DeviceIdentity.storageKey)
-        print("   ✓ Cleared device identity")
 
         // 3. Clear conversations
         UserDefaults.standard.removeObject(forKey: "openclaw-conversations")
-        print("   ✓ Cleared conversations")
 
         // 4. Clear push token references
         UserDefaults.standard.removeObject(forKey: "pendingPushToken")
         UserDefaults.standard.removeObject(forKey: "apnsDeviceToken")
-        print("   ✓ Cleared push tokens")
 
         // 5. Delete Ed25519 key pair (will be regenerated)
         DeviceIdentityManager.shared.deleteKeyPair()
-        print("   ✓ Deleted Ed25519 key pair")
 
         // 6. Clear ALL keychain entries for this service
         let keychainService = "openclaw-node-token"
@@ -126,14 +133,7 @@ class GatewayConnection: NSObject, ObservableObject {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: keychainService
         ]
-        let status = SecItemDelete(query as CFDictionary)
-        if status == errSecSuccess {
-            print("   ✓ Cleared all keychain entries for \(keychainService)")
-        } else if status == errSecItemNotFound {
-            print("   ✓ No keychain entries to clear")
-        } else {
-            print("   ⚠️ Keychain clear status: \(status)")
-        }
+        _ = SecItemDelete(query as CFDictionary)
 
         UserDefaults.standard.synchronize()
     }
@@ -153,20 +153,10 @@ class GatewayConnection: NSObject, ObservableObject {
     }
 
     func connectWithQRPayload(_ payload: QRPairingPayload) {
-        print("🔌 connectWithQRPayload() called")
-        print("🔌 Payload gateway URL: \(payload.gatewayUrl)")
-        print("🔌 Payload role: \(payload.role)")
-
         guard let config = payload.hostAndPort else {
-            print("🔌 ❌ Failed to parse host and port from gateway URL")
             connectionState = .failed("Invalid gateway URL in QR code")
             return
         }
-
-        print("🔌 ✅ Parsed connection config:")
-        print("🔌   Host: \(config.host)")
-        print("🔌   Port: \(config.port)")
-        print("🔌   SSL: \(config.useSSL)")
 
         self.gatewayHost = config.host
         self.port = config.port
@@ -175,23 +165,13 @@ class GatewayConnection: NSObject, ObservableObject {
         // Use token from QR code if present
         if let token = payload.token, !token.isEmpty {
             self.gatewayToken = token
-            let tokenPreview = String(token.prefix(8)) + "..." + String(token.suffix(4))
-            print("🔑 Got token from QR code: \(tokenPreview)")
-        } else {
-            print("⚠️ QR code has no token")
         }
 
         if let verificationCode = payload.verificationCode {
             self.verificationCode = verificationCode
-            print("🔐 Got verification code from QR: \(String(verificationCode.prefix(10)))...")
-        } else {
-            print("⚠️ No verification code in QR payload")
         }
 
         saveGatewayConfig()
-        print("🔌 Gateway config saved")
-
-        print("🔌 Calling connect()...")
         connect()
     }
 
@@ -217,7 +197,6 @@ class GatewayConnection: NSObject, ObservableObject {
 
         // If cached host differs from current config, clear it entirely
         if cachedHost != self.gatewayHost {
-            print("🧹 Clearing stale gateway config (was: \(cachedHost), now: \(self.gatewayHost))")
             UserDefaults.standard.removeObject(forKey: gatewayConfigKey)
             UserDefaults.standard.synchronize()
         }
@@ -231,16 +210,9 @@ class GatewayConnection: NSObject, ObservableObject {
 
         // NOTE: We intentionally do NOT load host/port/useSSL from cache anymore.
         // These should always come from Configuration.swift or a fresh QR scan.
-        // This prevents stale gateway addresses from being used after config changes.
         // Only load the authentication token from cache.
         if let token = config["token"] as? String, !token.isEmpty {
             self.gatewayToken = token
-            print("🔑 Loaded cached auth token")
-        }
-
-        // Log what we're ignoring for debugging
-        if let cachedHost = config["host"] as? String, cachedHost != self.gatewayHost {
-            print("⚠️ Ignoring cached gateway host '\(cachedHost)' - using '\(self.gatewayHost)' from config")
         }
     }
 
@@ -248,17 +220,16 @@ class GatewayConnection: NSObject, ObservableObject {
 
     private func loadSavedConversations() {
         guard let data = UserDefaults.standard.data(forKey: conversationsStorageKey) else {
-            print("📂 No saved conversations found")
             return
         }
 
         do {
             let decoded = try JSONDecoder().decode([String: Conversation].self, from: data)
             self.conversations = decoded
-            let messageCount = decoded.values.reduce(0) { $0 + $1.messages.count }
-            print("📂 Loaded \(decoded.count) conversations with \(messageCount) messages")
         } catch {
+            #if DEBUG
             print("❌ Failed to load conversations: \(error)")
+            #endif
         }
     }
 
@@ -266,9 +237,10 @@ class GatewayConnection: NSObject, ObservableObject {
         do {
             let data = try JSONEncoder().encode(conversations)
             UserDefaults.standard.set(data, forKey: conversationsStorageKey)
-            print("💾 Saved \(conversations.count) conversations")
         } catch {
+            #if DEBUG
             print("❌ Failed to save conversations: \(error)")
+            #endif
         }
     }
 
@@ -276,7 +248,6 @@ class GatewayConnection: NSObject, ObservableObject {
         conversations = [:]
         UserDefaults.standard.removeObject(forKey: conversationsStorageKey)
         ContentParser.clearCache()
-        print("🗑️ Cleared all conversation history and parser cache")
     }
 
     // MARK: - Device Identity
@@ -310,16 +281,11 @@ class GatewayConnection: NSObject, ObservableObject {
     // MARK: - Connection
 
     func connect() {
-        print("🔌 connect() called")
-        print("🔌 Current state: \(connectionState)")
-
         guard connectionState == .disconnected ||
               (connectionState != .connecting && connectionState != .connected) else {
-            print("🔌 ⚠️ Already connecting or connected, ignoring")
             return
         }
 
-        print("🔌 Setting state to connecting...")
         connectionState = .connecting
         isHandshakeComplete = false
         connectNonce = nil
@@ -328,38 +294,20 @@ class GatewayConnection: NSObject, ObservableObject {
         let scheme = useSSL ? "wss" : "ws"
         let urlString = "\(scheme)://\(gatewayHost):\(port)"
 
-        print("🔌 Building WebSocket URL: \(urlString)")
-        print("🔌 Connection parameters:")
-        print("🔌   - Scheme: \(scheme)")
-        print("🔌   - Host: \(gatewayHost)")
-        print("🔌   - Port: \(port)")
-        print("🔌   - SSL: \(useSSL)")
-        print("🔌   - Has token: \(!gatewayToken.isEmpty)")
-        print("🔌   - Has verification code: \(verificationCode != nil)")
-
         guard let url = URL(string: urlString) else {
-            print("❌ Invalid gateway URL: \(urlString)")
             connectionState = .failed("Invalid gateway URL")
             return
         }
 
-        print("🔌 ✅ URL is valid")
-
         var request = URLRequest(url: url)
-        request.timeoutInterval = 15  // 15 second timeout
-        print("🔌 Creating WebSocket task...")
+        request.timeoutInterval = 15
         webSocketTask = urlSession.webSocketTask(with: request)
-        print("🔌 Resuming WebSocket task...")
         webSocketTask?.resume()
-        print("🔌 ✅ WebSocket task started successfully")
-        print("🔌 Waiting for connection to establish...")
 
         // Connection timeout - if not connected after 15 seconds, fail
         DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
             guard let self = self else { return }
             if case .connecting = self.connectionState {
-                print("⏰ Connection timeout - no response from gateway after 15 seconds")
-                print("⏰ WebSocket task state: \(String(describing: self.webSocketTask?.state))")
                 self.connectionState = .failed("Connection timeout - gateway not reachable")
                 self.webSocketTask?.cancel()
             }
@@ -402,7 +350,9 @@ class GatewayConnection: NSObject, ObservableObject {
             }
         }
 
-        print("🌙 Background task started (ID: \(backgroundTaskId.rawValue)), keeping connection briefly...")
+        #if DEBUG
+        print("🌙 Background task started, keeping connection briefly...")
+        #endif
 
         // Keep connection alive for a short time to receive any pending messages
         // Then disconnect gracefully after 25 seconds (iOS gives ~30 seconds)
@@ -410,7 +360,9 @@ class GatewayConnection: NSObject, ObservableObject {
             guard let self = self,
                   UIApplication.shared.applicationState == .background else { return }
 
+            #if DEBUG
             print("🌙 Background time limit approaching, disconnecting gracefully...")
+            #endif
             self.disconnect()
             self.endBackgroundTask()
         }
@@ -428,17 +380,16 @@ class GatewayConnection: NSObject, ObservableObject {
             if connectionState != .connected && connectionState != .connecting {
                 // Only auto-connect if we have a token (means we're paired)
                 if !gatewayToken.isEmpty {
+                    #if DEBUG
                     print("☀️ App active, reconnecting... (was inactive for \(Int(timeSinceLastActive))s)")
+                    #endif
                     reconnectAttempt = 0  // Reset reconnect counter
                     connect()
-                } else {
-                    print("☀️ App active but not paired - waiting for QR scan")
                 }
             }
 
             // Fetch latest messages to catch up on anything missed
             if connectionState.isConnected {
-                print("☀️ Fetching latest messages after returning to foreground...")
                 fetchSessionsList()
             }
         }
@@ -450,7 +401,6 @@ class GatewayConnection: NSObject, ObservableObject {
         guard backgroundTaskId != .invalid else { return }
         UIApplication.shared.endBackgroundTask(backgroundTaskId)
         backgroundTaskId = .invalid
-        print("✅ Background task ended")
     }
 
     // MARK: - Message Polling (Fallback)
@@ -459,11 +409,14 @@ class GatewayConnection: NSObject, ObservableObject {
     private func startMessagePolling() {
         messagePollingTimer?.invalidate()
         messagePollingTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
             Task { @MainActor in
-                self?.pollForNewMessages()
+                self.pollForNewMessages()
             }
         }
+        #if DEBUG
         print("📡 Started message polling (5s interval)")
+        #endif
     }
 
     private func pollForNewMessages() {
@@ -2161,7 +2114,22 @@ extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate
             }
             return
         }
-        
+
+        // Handle "pairing required" (code 1008) - this is a PENDING state, not a failure!
+        // The gateway sends this when the device needs approval before connecting.
+        // We should show the "Waiting for approval" screen, not an error.
+        if closeCode.rawValue == 1008 && reasonString == "pairing required" {
+            print("📋 Pairing required - starting pairing approval flow")
+            Task { @MainActor in
+                self.connectionState = .connecting
+                self.isHandshakeComplete = false
+                // requestPairing() will set pairingState to .pendingApproval
+                // and start polling for approval
+                self.requestPairing()
+            }
+            return
+        }
+
         Task { @MainActor in
             self.connectionState = .disconnected
             self.isHandshakeComplete = false

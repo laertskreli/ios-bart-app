@@ -167,6 +167,9 @@ struct ChatThreadView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            ConnectionStatusBanner(state: gateway.connectionState)
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 // Reply preview bar
@@ -637,22 +640,19 @@ struct ConnectionStatusMessage: View {
     }
 }
 
-// MARK: - Connection Indicator (Tappable with Status Popup)
+// MARK: - Connection Indicator (Liquid Glass Circle with Dot)
 
 struct ConnectionIndicator: View {
     let state: ConnectionState
-    @State private var showStatusPopup = false
-    @State private var isPulsing = false
-    @EnvironmentObject var gateway: GatewayConnection
 
     private var color: Color {
         switch state {
         case .connected:
             return .green
         case .connecting, .reconnecting:
-            return .orange
+            return .yellow
         case .disconnected, .failed:
-            return .gray
+            return .red
         }
     }
 
@@ -660,37 +660,32 @@ struct ConnectionIndicator: View {
         switch state {
         case .connecting, .reconnecting:
             return true
-        case .connected:
-            return true  // Green pulsing when connected
         default:
             return false
         }
     }
 
-    var body: some View {
-        Button {
-            showStatusPopup = true
-        } label: {
-            ZStack {
-                // Liquid glass background (same size as settings button)
-                Circle()
-                    .fill(.ultraThinMaterial)
-                    .frame(width: 32, height: 32)
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
-                    )
+    @State private var isPulsing = false
 
-                // Status dot - simple colored dot with pulsing
-                Circle()
-                    .fill(color)
-                    .frame(width: 10, height: 10)
-                    .shadow(color: color.opacity(0.6), radius: isPulsing ? 4 : 2)
-                    .scaleEffect(isPulsing ? 1.15 : 1.0)
-            }
+    var body: some View {
+        ZStack {
+            // Liquid glass background (same size as settings button)
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 32, height: 32)
+                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                )
+
+            // Status dot
+            Circle()
+                .fill(color)
+                .frame(width: 10, height: 10)
+                .shadow(color: color.opacity(0.6), radius: isAnimating ? 4 : 2)
+                .scaleEffect(isPulsing && isAnimating ? 1.15 : 1.0)
         }
-        .buttonStyle(.plain)
         .animation(
             isAnimating ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default,
             value: isPulsing
@@ -701,77 +696,8 @@ struct ConnectionIndicator: View {
         .onChange(of: state) { _, _ in
             isPulsing = isAnimating
         }
-        .popover(isPresented: $showStatusPopup) {
-            ConnectionStatusPopup(state: state, latency: gateway.lastLatency)
-                .presentationCompactAdaptation(.popover)
-        }
     }
 }
-
-// MARK: - Connection Status Popup (Simple)
-
-struct ConnectionStatusPopup: View {
-    let state: ConnectionState
-    let latency: TimeInterval?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 12, height: 12)
-
-                Text(statusText)
-                    .font(.headline)
-            }
-
-            if let latency = latency, state.isConnected {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text("Latency: \(Int(latency * 1000))ms")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            if case .reconnecting(let attempt) = state {
-                Text("Attempt \(attempt) of 5")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            if case .failed(let message) = state {
-                Text(message)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .lineLimit(3)
-            }
-        }
-        .padding()
-        .frame(minWidth: 180)
-    }
-
-    private var statusColor: Color {
-        switch state {
-        case .connected: return .green
-        case .connecting, .reconnecting: return .orange
-        case .disconnected, .failed: return .gray
-        }
-    }
-
-    private var statusText: String {
-        switch state {
-        case .connected: return "Connected"
-        case .connecting: return "Connecting..."
-        case .reconnecting: return "Reconnecting..."
-        case .disconnected: return "Disconnected"
-        case .failed: return "Connection Failed"
-        }
-    }
-}
-
 
 // MARK: - Session Picker Button
 

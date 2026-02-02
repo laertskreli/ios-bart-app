@@ -650,7 +650,7 @@ extension MessageBubble {
                 .fill(Color.accentColor)
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(.ultraThinMaterial)
         }
     }
 

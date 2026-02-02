@@ -264,8 +264,21 @@ class GatewayConnection: NSObject, ObservableObject {
             return identity
         }
 
+        // Use identifierForVendor for a deterministic device ID
+        // This ensures the same device always gets the same nodeId
+        // preventing "duplicate device" entries on the server
+        let deviceId: String
+        if let idfv = UIDevice.current.identifierForVendor?.uuidString {
+            // Use first 8 chars of IDFV hash for shorter, consistent ID
+            let hash = idfv.data(using: .utf8)?.base64EncodedString() ?? ""
+            deviceId = String(hash.prefix(8).filter { $0.isLetter || $0.isNumber }).lowercased()
+        } else {
+            // Fallback to random UUID if IDFV unavailable
+            deviceId = UUID().uuidString.prefix(8).lowercased()
+        }
+
         let newIdentity = DeviceIdentity(
-            nodeId: "iphone-\(UUID().uuidString.prefix(8).lowercased())",
+            nodeId: "iphone-\(deviceId)",
             displayName: UIDevice.current.name,
             pairingToken: nil,
             pairedAt: nil

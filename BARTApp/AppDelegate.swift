@@ -48,7 +48,10 @@ class AppDelegate: NSObject, UIApplicationDelegate {
     ) {
         // Convert token to hex string
         let tokenString = deviceToken.map { String(format: "%02.2hhx", $0) }.joined()
-        print("📱 APNs device token: \(tokenString)")
+
+        // Redact token for logging to prevent leaks
+        let redactedToken = String(tokenString.prefix(8)) + "..." + String(tokenString.suffix(4))
+        print("📱 APNs device token: \(redactedToken)")
 
         // Store token for later use
         UserDefaults.standard.set(tokenString, forKey: "apnsDeviceToken")

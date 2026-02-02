@@ -260,6 +260,7 @@ struct MessageBubble: View {
     var onComponentAction: ((String, String) -> Void)?
 
     @State private var showCopied = false
+    @State private var appeared = false
 
     /// Parsed content blocks - computed once and cached by SwiftUI
     private var parsedBlocks: [ParsedContentBlock] {
@@ -278,13 +279,33 @@ struct MessageBubble: View {
         }
     }
 
+    /// Check if message is newly sent (for animation)
+    private var isNewlySent: Bool {
+        message.role == .user && message.deliveryStatus == .sending
+    }
+
     var body: some View {
-        if message.role == .assistant && hasRichComponents {
-            // Full-width layout for rich components
-            fullWidthContent
-        } else {
-            // Standard bubble layout
-            standardBubbleContent
+        Group {
+            if message.role == .assistant && hasRichComponents {
+                // Full-width layout for rich components
+                fullWidthContent
+            } else {
+                // Standard bubble layout
+                standardBubbleContent
+            }
+        }
+        // iMessage-style fly-up animation for user messages
+        .offset(y: appeared ? 0 : (message.role == .user ? 20 : 0))
+        .opacity(appeared ? 1 : (message.role == .user ? 0 : 1))
+        .scaleEffect(appeared ? 1 : (message.role == .user ? 0.95 : 1))
+        .onAppear {
+            if message.role == .user && !appeared {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                    appeared = true
+                }
+            } else {
+                appeared = true
+            }
         }
     }
 
@@ -389,28 +410,49 @@ struct MessageBubble: View {
         }
     }
 
-    /// Delivery indicator inside the bubble (bottom-right)
+    /// Delivery indicator inside the bubble (bottom-right) - Made much smaller
     @ViewBuilder
     private var inBubbleDeliveryIndicator: some View {
         switch message.deliveryStatus {
         case .pending, .sending:
-            // Green outline - sent but waiting for response
-            Circle()
-                .stroke(Color.green.opacity(0.8), lineWidth: 1.5)
-                .frame(width: 8, height: 8)
+            // Sending state - tiny pulsing outline
+            SendingIndicator()
         case .delivered:
-            // Green filled - delivered successfully
+            // Delivered - tiny green filled dot (much smaller than before)
             Circle()
-                .fill(Color.green)
-                .frame(width: 8, height: 8)
+                .fill(Color.white.opacity(0.6))
+                .frame(width: 5, height: 5)
         case .failed:
-            // Red X - failed
-            Image(systemName: "xmark")
-                .font(.system(size: 8, weight: .bold))
+            // Failed - red exclamation mark, more visible
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(.red)
         }
     }
+}
 
+// MARK: - Sending Indicator (Pulsing dot)
+
+struct SendingIndicator: View {
+    @State private var isPulsing = false
+
+    var body: some View {
+        Circle()
+            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+            .frame(width: 6, height: 6)
+            .scaleEffect(isPulsing ? 1.2 : 0.8)
+            .opacity(isPulsing ? 1 : 0.5)
+            .animation(
+                .easeInOut(duration: 0.6).repeatForever(autoreverses: true),
+                value: isPulsing
+            )
+            .onAppear { isPulsing = true }
+    }
+}
+
+// MARK: - MessageBubble Helper Methods
+
+extension MessageBubble {
     private func triggerReply() {
         // Haptic feedback
         let impact = UIImpactFeedbackGenerator(style: .medium)

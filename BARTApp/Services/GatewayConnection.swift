@@ -16,9 +16,13 @@ class GatewayConnection: NSObject, ObservableObject {
     @Published private(set) var deviceIdentity: DeviceIdentity
     @Published private(set) var isBotTyping: [String: Bool] = [:]  // sessionKey -> isTyping
     @Published private(set) var activeSessions: [SessionInfo] = []  // All active sessions including subagents
+    @Published private(set) var lastLatency: TimeInterval?  // Last measured round-trip latency
 
     // Track streaming messages by session
     private var streamingMessageIds: [String: String] = [:]  // sessionKey -> messageId
+
+    // Latency tracking
+    private var lastPingTime: Date?
 
     // MARK: - Configuration
 
@@ -105,8 +109,9 @@ class GatewayConnection: NSObject, ObservableObject {
         print("🌐 Gateway config: \(gatewayHost):\(port), SSL: \(useSSL)")
         #endif
 
-        // Load saved conversations
+        // Load saved conversations and pending messages
         loadSavedConversations()
+        loadPendingMessages()
     }
 
     /// Performs a complete reset of all cached pairing/connection data
@@ -670,6 +675,9 @@ class GatewayConnection: NSObject, ObservableObject {
                     self.fetchSessionsList()
                     self.startMessagePolling()
                     self.registerPendingPushToken()
+
+                    // Send any queued offline messages
+                    self.sendPendingMessages()
                 }
             } else if let error = response["error"] as? [String: Any] {
                 let code = error["code"] as? String
@@ -919,8 +927,12 @@ class GatewayConnection: NSObject, ObservableObject {
 
     // MARK: - RPC
 
+    // Track request timestamps for latency measurement
+    private var requestTimestamps: [String: Date] = [:]
+
     private func sendRPC(method: String, params: [String: Any], completion: @escaping ([String: Any]) -> Void) {
         let requestId = UUID().uuidString
+        let sendTime = Date()
 
         // OpenClaw frame format (not JSON-RPC)
         let message: [String: Any] = [
@@ -943,7 +955,19 @@ class GatewayConnection: NSObject, ObservableObject {
             print(prettyString)
         }
 
-        responseHandlers[requestId] = completion
+        // Track request time for latency
+        requestTimestamps[requestId] = sendTime
+
+        // Wrap completion to measure latency
+        responseHandlers[requestId] = { [weak self] response in
+            if let startTime = self?.requestTimestamps.removeValue(forKey: requestId) {
+                let latency = Date().timeIntervalSince(startTime)
+                Task { @MainActor in
+                    self?.lastLatency = latency
+                }
+            }
+            completion(response)
+        }
 
         let wsMessage = URLSessionWebSocketTask.Message.string(jsonString)
         webSocketTask?.send(wsMessage) { [weak self] error in
@@ -951,6 +975,7 @@ class GatewayConnection: NSObject, ObservableObject {
                 print("❌ WebSocket send error: \(error)")
                 Task { @MainActor [weak self] in
                     self?.responseHandlers.removeValue(forKey: requestId)
+                    self?.requestTimestamps.removeValue(forKey: requestId)
                     completion(["error": ["message": error.localizedDescription]])
                 }
             } else {
@@ -961,6 +986,7 @@ class GatewayConnection: NSObject, ObservableObject {
         // Timeout after 30 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
             if let handler = self?.responseHandlers.removeValue(forKey: requestId) {
+                self?.requestTimestamps.removeValue(forKey: requestId)
                 handler(["error": ["message": "Request timed out"]])
             }
         }
@@ -1023,18 +1049,72 @@ class GatewayConnection: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Offline Message Queue
+
+    /// Queue of messages waiting to be sent when reconnected
+    private var pendingMessages: [PendingMessage] = []
+    private let pendingMessagesKey = "openclaw-pending-messages"
+
+    struct PendingMessage: Codable {
+        let id: String
+        let text: String
+        let sessionKey: String
+        let timestamp: Date
+    }
+
+    /// Queue a message for later sending when offline
+    private func queueMessage(_ text: String, sessionKey: String, messageId: String) {
+        let pending = PendingMessage(id: messageId, text: text, sessionKey: sessionKey, timestamp: Date())
+        pendingMessages.append(pending)
+        savePendingMessages()
+        print("📦 Message queued for later: \(text.prefix(30))...")
+    }
+
+    private func savePendingMessages() {
+        if let data = try? JSONEncoder().encode(pendingMessages) {
+            UserDefaults.standard.set(data, forKey: pendingMessagesKey)
+        }
+    }
+
+    private func loadPendingMessages() {
+        if let data = UserDefaults.standard.data(forKey: pendingMessagesKey),
+           let messages = try? JSONDecoder().decode([PendingMessage].self, from: data) {
+            pendingMessages = messages
+        }
+    }
+
+    /// Send all queued messages when reconnected
+    func sendPendingMessages() {
+        guard connectionState == .connected else { return }
+        guard !pendingMessages.isEmpty else { return }
+
+        print("📤 Sending \(pendingMessages.count) queued message(s)...")
+
+        let messagesToSend = pendingMessages
+        pendingMessages = []
+        savePendingMessages()
+
+        Task {
+            for pending in messagesToSend {
+                do {
+                    try await sendMessageInternal(pending.text, sessionKey: pending.sessionKey, messageId: pending.id)
+                } catch {
+                    print("❌ Failed to send queued message: \(error.localizedDescription)")
+                    // Re-queue if still failing
+                    queueMessage(pending.text, sessionKey: pending.sessionKey, messageId: pending.id)
+                }
+            }
+        }
+    }
+
     // MARK: - Chat
 
     func sendMessage(_ text: String, sessionKey: String? = nil) async throws {
-        guard connectionState == .connected else {
-            throw NSError(domain: "Gateway", code: -1, userInfo: [NSLocalizedDescriptionKey: "Not connected"])
-        }
-
         let agentId = currentAgent?.id ?? "main"
         let key = sessionKey ?? "agent:\(agentId):node:dm:\(deviceIdentity.nodeId)"
         let messageId = UUID().uuidString
 
-        // Add user message to conversation with sending status
+        // Add user message to conversation with pending status
         let userMessage = Message(
             id: messageId,
             conversationId: key,
@@ -1044,9 +1124,22 @@ class GatewayConnection: NSObject, ObservableObject {
             isStreaming: false,
             toolCalls: nil,
             location: nil,
-            deliveryStatus: .sending
+            deliveryStatus: connectionState == .connected ? .sending : .pending
         )
         addMessageToConversation(userMessage, sessionKey: key)
+
+        // If not connected, queue for later
+        guard connectionState == .connected else {
+            queueMessage(text, sessionKey: key, messageId: messageId)
+            return
+        }
+
+        try await sendMessageInternal(text, sessionKey: key, messageId: messageId)
+    }
+
+    private func sendMessageInternal(_ text: String, sessionKey: String, messageId: String) async throws {
+        // Update status to sending
+        updateMessageDeliveryStatus(messageId: messageId, sessionKey: sessionKey, status: .sending)
 
         // Use chat.send for direct agent chat
         let params: [String: Any] = [

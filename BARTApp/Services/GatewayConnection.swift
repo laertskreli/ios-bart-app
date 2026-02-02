@@ -1143,16 +1143,16 @@ class GatewayConnection: NSObject, ObservableObject {
 
         // Use chat.send for direct agent chat
         let params: [String: Any] = [
-            "sessionKey": key,
+            "sessionKey": sessionKey,
             "message": text,
             "idempotencyKey": messageId
         ]
 
-        print("💬 [Send] Sending to sessionKey: \(key)")
+        print("💬 [Send] Sending to sessionKey: \(sessionKey)")
         print("💬 [Send] Message: \(text.prefix(50))...")
 
         // Ensure we're polling this session for responses
-        addSessionToPolling(key)
+        addSessionToPolling(sessionKey)
 
         return try await withCheckedThrowingContinuation { continuation in
             sendRPC(method: "chat.send", params: params) { [weak self] response in
@@ -1163,7 +1163,7 @@ class GatewayConnection: NSObject, ObservableObject {
                         let message = error["message"] as? String ?? "Unknown error"
                         print("❌ Message send error: \(message)")
                         // Update to failed
-                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .failed)
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: sessionKey, status: .failed)
                         continuation.resume(throwing: NSError(
                             domain: "Gateway",
                             code: -1,
@@ -1172,7 +1172,7 @@ class GatewayConnection: NSObject, ObservableObject {
                     } else {
                         print("✅ Message sent successfully")
                         // Update to delivered
-                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: key, status: .delivered)
+                        self.updateMessageDeliveryStatus(messageId: messageId, sessionKey: sessionKey, status: .delivered)
                         continuation.resume()
                     }
                 }

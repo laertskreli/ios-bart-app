@@ -54,12 +54,25 @@ struct ChatThreadView: View {
         gateway.isBotTyping[currentSessionKey] ?? false
     }
 
+    /// Show typing indicator when bot is typing OR when we have an actively streaming message
+    private var showTypingIndicator: Bool {
+        // Show if explicitly marked as typing
+        if gateway.isBotTyping[currentSessionKey] == true {
+            return true
+        }
+        // Also show if there's a streaming message (active response)
+        if let lastMessage = messages.last, lastMessage.role == .assistant && lastMessage.isStreaming {
+            return true
+        }
+        return false
+    }
+
     var body: some View {
         GeometryReader { geometry in
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        if messages.isEmpty && !isBotTyping {
+                        if messages.isEmpty && !showTypingIndicator {
                             emptyStateView
                                 .frame(height: geometry.size.height * 0.6)
                                 .scaleEffect(y: -1)
@@ -76,7 +89,7 @@ struct ChatThreadView: View {
                                     .scaleEffect(y: -1)
                             }
 
-                            if isBotTyping {
+                            if showTypingIndicator {
                                 TypingIndicatorBubble()
                                     .id("typing-indicator")
                                     .scaleEffect(y: -1)
@@ -134,7 +147,7 @@ struct ChatThreadView: View {
                     // Scroll during streaming updates
                     scrollToBottom(animated: false)
                 }
-                .onChange(of: isBotTyping) { _, isTyping in
+                .onChange(of: showTypingIndicator) { _, isTyping in
                     if isTyping {
                         scrollToBottom(animated: true)
                     }

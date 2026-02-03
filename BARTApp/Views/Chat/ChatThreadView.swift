@@ -71,6 +71,7 @@ struct ChatThreadView: View {
         GeometryReader { geometry in
             ScrollViewReader { proxy in
                 ScrollView {
+                    
                     LazyVStack(spacing: 12) {
                         if messages.isEmpty && !showTypingIndicator {
                             emptyStateView
@@ -108,6 +109,9 @@ struct ChatThreadView: View {
                 }
                 .scaleEffect(y: -1)
                 .scrollDismissesKeyboard(.interactively)
+                .scrollIndicators(.hidden)
+                .scrollContentBackground(.hidden)
+                .background(Color.black)
                 .onTapGesture {
                     // Dismiss keyboard when tapping outside
                     isInputFocused = false

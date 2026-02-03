@@ -44,6 +44,8 @@
 		A1000203 /* ContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000203 /* ContentResolver.swift */; };
 		A1000204 /* ResolvedComponentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000204 /* ResolvedComponentViews.swift */; };
 		A1000205 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000205 /* AppDelegate.swift */; };
+		A1000208 /* DeviceAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000208 /* DeviceAuthManager.swift */; };
+		A1000209 /* CryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000209 /* CryptoManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -87,6 +89,8 @@
 		A2000205 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A2000206 /* APNsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APNsManager.swift; sourceTree = "<group>"; };
 		A2000207 /* BARTApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BARTApp.entitlements; sourceTree = "<group>"; };
+		A2000208 /* DeviceAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAuthManager.swift; sourceTree = "<group>"; };
+		A2000209 /* CryptoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +159,8 @@
 				A2000020 /* GatewayConnection.swift */,
 				A2000021 /* LocationManager.swift */,
 				A2000206 /* APNsManager.swift */,
+				A2000208 /* DeviceAuthManager.swift */,
+				A2000209 /* CryptoManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -339,6 +345,8 @@
 				A1000204 /* ResolvedComponentViews.swift in Sources */,
 				A1000205 /* AppDelegate.swift in Sources */,
 				A1000206 /* APNsManager.swift in Sources */,
+				A1000208 /* DeviceAuthManager.swift in Sources */,
+				A1000209 /* CryptoManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

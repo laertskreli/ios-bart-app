@@ -577,6 +577,15 @@ class GatewayConnection: NSObject, ObservableObject {
             "role": "operator"
         ]
 
+        // Always include HMAC-based device auth for additional security
+        let hmacAuth = DeviceAuthManager.shared.getAuthHeader()
+        params["hmacAuth"] = [
+            "deviceId": hmacAuth.deviceId,
+            "timestamp": hmacAuth.timestamp,
+            "hmac": hmacAuth.hmac
+        ]
+        print("🔐 Added HMAC auth: deviceId=\(hmacAuth.deviceId.prefix(8))..., ts=\(hmacAuth.timestamp)")
+
         // Use token auth if we have a token (from QR code or saved device token)
         if !gatewayToken.isEmpty {
             params["auth"] = ["token": gatewayToken]
@@ -695,6 +704,7 @@ class GatewayConnection: NSObject, ObservableObject {
                 }
             } else if let error = response["error"] as? [String: Any] {
                 let code = error["code"] as? String
+                let codeInt = error["code"] as? Int
                 let message = error["message"] as? String ?? "Connect failed"
 
                 if code == "NOT_PAIRED" {
@@ -713,6 +723,12 @@ class GatewayConnection: NSObject, ObservableObject {
                             self.requestPairing()
                         }
                     }
+                } else if code == "AUTH_FAILED" || code == "UNAUTHORIZED" || codeInt == 401 {
+                    // Authentication failed - could be expired timestamp or invalid HMAC
+                    print("🔐 Auth failed: \(message)")
+                    Task { @MainActor in
+                        self.handleAuthFailure(message: message)
+                    }
                 } else {
                     Task { @MainActor in
                         print("❌ Connect error: \(message)")
@@ -720,6 +736,34 @@ class GatewayConnection: NSObject, ObservableObject {
                     }
                 }
             }
+        }
+    }
+
+    /// Handle authentication failure - reconnect with fresh timestamp
+    private func handleAuthFailure(message: String) {
+        print("🔐 Handling auth failure, will retry with fresh credentials")
+
+        // Reset connection state
+        connectRequestSent = false
+        isHandshakeComplete = false
+
+        // Small delay before retrying to avoid rapid reconnection loops
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else { return }
+
+            // Check if we've exceeded retry limit
+            if self.reconnectAttempt >= self.maxReconnectAttempts {
+                self.connectionState = .failed("Authentication failed: \(message)")
+                return
+            }
+
+            self.reconnectAttempt += 1
+            print("🔄 Retrying connection with fresh timestamp (attempt \(self.reconnectAttempt))")
+
+            // Disconnect and reconnect
+            self.webSocketTask?.cancel()
+            self.webSocketTask = nil
+            self.connect()
         }
     }
 
@@ -2254,6 +2298,21 @@ extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate
                 // requestPairing() will set pairingState to .pendingApproval
                 // and start polling for approval
                 self.requestPairing()
+            }
+            return
+        }
+
+        // Handle authentication failure via close code
+        // Close codes: 1008 = Policy Violation (often used for auth failures)
+        // Also check reason string for auth-related messages
+        let isAuthFailure = reasonString.lowercased().contains("auth") ||
+                           reasonString.lowercased().contains("unauthorized") ||
+                           reasonString.lowercased().contains("401") ||
+                           reasonString.lowercased().contains("expired")
+        if isAuthFailure {
+            print("🔐 WebSocket closed due to auth failure: \(reasonString)")
+            Task { @MainActor in
+                self.handleAuthFailure(message: reasonString)
             }
             return
         }

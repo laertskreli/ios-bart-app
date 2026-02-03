@@ -225,7 +225,7 @@ struct ChatThreadView: View {
                 )
             }
 
-            // Right: Settings button (liquid glass style)
+            // Right: Settings button
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     SettingsView()
@@ -236,12 +236,11 @@ struct ChatThreadView: View {
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                                .fill(Color.black.opacity(0.9))
                         )
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                         )
                 }
             }
@@ -343,7 +342,7 @@ struct ChatThreadView: View {
         .padding(.vertical, 6)
         .background(
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(Color.black.opacity(0.9))
         )
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
@@ -371,7 +370,7 @@ struct ChatThreadView: View {
                 .opacity(0.3)
 
             HStack(spacing: 4) {
-                // Attach button - liquid glass
+                // Attach button
                 Menu {
                     Section {
                         Button {
@@ -393,12 +392,11 @@ struct ChatThreadView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                                .fill(Color.black.opacity(0.9))
                         )
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                         )
                 }
                 .frame(width: 44, height: 44)
@@ -417,7 +415,7 @@ struct ChatThreadView: View {
                     .allowsHitTesting(true)
                 }
 
-                // Location button - liquid glass
+                // Location button
                 Button {
                     showLocationSheet = true
                 } label: {
@@ -427,12 +425,11 @@ struct ChatThreadView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(.ultraThinMaterial)
-                                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                                .fill(Color.black.opacity(0.9))
                         )
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                         )
                 }
                 .frame(width: 44, height: 44)
@@ -483,7 +480,7 @@ struct ChatThreadView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial)
+            .background(Color.black.opacity(0.95))
             .ignoresSafeArea(edges: .bottom)
         }
     }
@@ -700,14 +697,13 @@ struct ConnectionIndicator: View {
             showStatusPopup = true
         } label: {
             ZStack {
-                // Liquid glass background (same size as settings button)
+                // Solid dark background (same size as settings button)
                 Circle()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color.black.opacity(0.9))
                     .frame(width: 32, height: 32)
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
                     .overlay(
                         Circle()
-                            .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
                     )
 
                 // Status dot - simple colored dot with pulsing
@@ -861,7 +857,7 @@ struct SessionPickerButton: View {
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(UIColor.systemBackground))
                     .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
             )
             .overlay(

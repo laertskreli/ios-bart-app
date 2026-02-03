@@ -6,14 +6,14 @@ struct GlassBackground: View {
 
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(.ultraThinMaterial)
+            .fill(Color.black.opacity(0.85))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                .white.opacity(0.5),
-                                .white.opacity(0.1)
+                                .white.opacity(0.2),
+                                .white.opacity(0.05)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -65,14 +65,14 @@ struct GlassButton: ButtonStyle {
                             )
                     } else {
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(.ultraThinMaterial)
+                            .fill(Color.black.opacity(0.85))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .stroke(
                                         LinearGradient(
                                             colors: [
-                                                .white.opacity(0.5),
-                                                .white.opacity(0.1)
+                                                .white.opacity(0.2),
+                                                .white.opacity(0.05)
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
@@ -105,7 +105,7 @@ struct FloatingInputBar: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.secondary)
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(.ultraThinMaterial))
+                        .background(Circle().fill(Color.black.opacity(0.85)))
                 }
             }
 
@@ -158,9 +158,8 @@ struct LiquidGlassButton: View {
                 ZStack {
                     // Glow effect
                     Circle()
-                        .fill(iconColor.opacity(0.3))
+                        .fill(iconColor.opacity(0.2))
                         .frame(width: 52, height: 52)
-                        .blur(radius: 8)
 
                     // Icon background
                     Circle()
@@ -204,9 +203,9 @@ struct LiquidGlassButton: View {
             .padding(16)
             .background(
                 ZStack {
-                    // Base glass layer
+                    // Base solid dark layer
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(.ultraThinMaterial)
+                        .fill(Color.black.opacity(0.85))
 
                     // Inner gradient for depth
                     RoundedRectangle(cornerRadius: 20)
@@ -256,7 +255,6 @@ struct LiquidGlassButton: View {
                     // Inner shadow
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(.black.opacity(0.1), lineWidth: 1)
-                        .blur(radius: 1)
                         .offset(y: 1)
                         .mask(RoundedRectangle(cornerRadius: 20))
                 }

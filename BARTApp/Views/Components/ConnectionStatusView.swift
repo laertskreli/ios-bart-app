@@ -46,7 +46,7 @@ struct ConnectionStatusView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Capsule().fill(.ultraThinMaterial))
+            .background(Capsule().fill(Color(UIColor.systemBackground)))
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showSessionPicker) {
@@ -304,7 +304,7 @@ struct ConnectionStatusBanner: View {
                 }
             }
             .padding()
-            .background(.ultraThinMaterial)
+            .background(Color(UIColor.systemBackground))
             .transition(.move(edge: .top).combined(with: .opacity))
         }
     }

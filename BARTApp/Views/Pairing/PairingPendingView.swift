@@ -100,7 +100,7 @@ struct PairingPendingView: View {
                         .background(
                             ZStack {
                                 RoundedRectangle(cornerRadius: 14)
-                                    .fill(.ultraThinMaterial)
+                                    .fill(Color(UIColor.systemBackground))
 
                                 RoundedRectangle(cornerRadius: 14)
                                     .stroke(

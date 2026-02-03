@@ -89,7 +89,7 @@ struct TabbedChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(.ultraThinMaterial)
+        .background(Color(UIColor.systemBackground))
         .overlay(
             Rectangle()
                 .fill(Color.primary.opacity(0.1))
@@ -132,7 +132,7 @@ struct TabButton: View {
                             .matchedGeometryEffect(id: "selectedTab", in: namespace)
                     } else {
                         Capsule()
-                            .fill(.ultraThinMaterial)
+                            .fill(Color(UIColor.systemBackground))
                     }
                 }
             )

@@ -67,7 +67,7 @@ struct LocationShareSheet: View {
 
             if locationManager.currentLocation == nil {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(Color(UIColor.systemBackground))
 
                 VStack(spacing: 12) {
                     ProgressView()
@@ -86,7 +86,7 @@ struct LocationShareSheet: View {
                     Image(systemName: "location.fill")
                         .foregroundStyle(Color.accentColor)
                         .frame(width: 32, height: 32)
-                        .background(Circle().fill(.ultraThinMaterial))
+                        .background(Circle().fill(Color(UIColor.systemBackground)))
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Current Location")

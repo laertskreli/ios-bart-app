@@ -245,7 +245,7 @@ struct ChatThreadView: View {
                         .frame(width: 32, height: 32)
                         .background(
                             Circle()
-                                .fill(Color.black.opacity(0.9))
+                                .fill(Color.black)
                         )
                         .overlay(
                             Circle()
@@ -351,7 +351,7 @@ struct ChatThreadView: View {
         .padding(.vertical, 6)
         .background(
             Rectangle()
-                .fill(Color.black.opacity(0.9))
+                .fill(Color.black)
         )
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
@@ -401,7 +401,7 @@ struct ChatThreadView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(Color.black.opacity(0.9))
+                                .fill(Color.black)
                         )
                         .overlay(
                             Circle()
@@ -434,7 +434,7 @@ struct ChatThreadView: View {
                         .frame(width: 36, height: 36)
                         .background(
                             Circle()
-                                .fill(Color.black.opacity(0.9))
+                                .fill(Color.black)
                         )
                         .overlay(
                             Circle()
@@ -489,7 +489,7 @@ struct ChatThreadView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(Color.black.opacity(0.95))
+            .background(Color.black)
             .ignoresSafeArea(edges: .bottom)
         }
     }
@@ -708,7 +708,7 @@ struct ConnectionIndicator: View {
             ZStack {
                 // Solid dark background (same size as settings button)
                 Circle()
-                    .fill(Color.black.opacity(0.9))
+                    .fill(Color.black)
                     .frame(width: 32, height: 32)
                     .overlay(
                         Circle()

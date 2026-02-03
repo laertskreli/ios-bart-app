@@ -577,15 +577,6 @@ class GatewayConnection: NSObject, ObservableObject {
             "role": "operator"
         ]
 
-        // Always include HMAC-based device auth for additional security
-        let hmacAuth = DeviceAuthManager.shared.getAuthHeader()
-        params["hmacAuth"] = [
-            "deviceId": hmacAuth.deviceId,
-            "timestamp": hmacAuth.timestamp,
-            "hmac": hmacAuth.hmac
-        ]
-        print("🔐 Added HMAC auth: deviceId=\(hmacAuth.deviceId.prefix(8))..., ts=\(hmacAuth.timestamp)")
-
         // Use token auth if we have a token (from QR code or saved device token)
         if !gatewayToken.isEmpty {
             params["auth"] = ["token": gatewayToken]

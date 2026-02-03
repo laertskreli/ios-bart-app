@@ -44,5 +44,5 @@ Carthage/Checkouts/
 *.pem
 api_key.json
 fastlane/api_key.json
-fastlane/AuthKey_*.p8
+fastlane/keys/
 *.webp

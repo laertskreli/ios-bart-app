@@ -547,8 +547,7 @@ extension MessageBubble {
                 case .location(let component):
                     InteractiveLocationView(component: component, onAction: handleComponentAction)
 
-                case .text, .button, .buttonGroup, .options:
-
+                case .button, .buttonGroup, .options:
                     EmptyView()
                 }
             }

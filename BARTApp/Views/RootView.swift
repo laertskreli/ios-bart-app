@@ -4,23 +4,28 @@ struct RootView: View {
     @EnvironmentObject var gateway: GatewayConnection
 
     var body: some View {
-        Group {
-            switch gateway.pairingState {
-            case .unpaired:
-                PairingView()
-                    .onAppear { print("📱 RootView: Showing PairingView (unpaired)") }
+        ZStack {
+            // Solid black background to prevent any transparency
+            Color.black.ignoresSafeArea()
+            
+            Group {
+                switch gateway.pairingState {
+                case .unpaired:
+                    PairingView()
+                        .onAppear { print("📱 RootView: Showing PairingView (unpaired)") }
 
-            case .pendingApproval(let code, let requestId):
-                PairingPendingView(code: code, requestId: requestId)
-                    .onAppear { print("📱 RootView: Showing PairingPendingView") }
+                case .pendingApproval(let code, let requestId):
+                    PairingPendingView(code: code, requestId: requestId)
+                        .onAppear { print("📱 RootView: Showing PairingPendingView") }
 
-            case .paired:
-                MainView()
-                    .onAppear { print("📱 RootView: Showing MainView (paired)") }
+                case .paired:
+                    MainView()
+                        .onAppear { print("📱 RootView: Showing MainView (paired)") }
 
-            case .failed(let error):
-                PairingFailedView(error: error)
-                    .onAppear { print("📱 RootView: Showing PairingFailedView: \(error)") }
+                case .failed(let error):
+                    PairingFailedView(error: error)
+                        .onAppear { print("📱 RootView: Showing PairingFailedView: \(error)") }
+                }
             }
         }
         .animation(.spring(response: 0.4), value: pairingStateId)
@@ -29,7 +34,6 @@ struct RootView: View {
         }
         .onAppear {
             print("📱 RootView: onAppear - pairingState: \(pairingStateId)")
-            // Only auto-connect if already paired (has saved token)
             if case .paired = gateway.pairingState {
                 gateway.connect()
             }

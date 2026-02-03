@@ -22,6 +22,7 @@ struct BARTApp: App {
     var body: some Scene {
         WindowGroup {
             AppContentView(appDelegate: appDelegate)
+                .background(Color.black)
                 .environmentObject(gateway)
         }
     }

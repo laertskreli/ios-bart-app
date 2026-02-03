@@ -333,22 +333,6 @@ struct StreamingIndicator: View {
 // MARK: - Chat Background Gradient
 
 /// Subtle gradient background for chat view - dark purple to black
-struct ChatBackgroundGradient: View {
-    // Custom dark purple color #1a0a2e
-    private let darkPurple = Color(red: 0.102, green: 0.039, blue: 0.180)
-
-    var body: some View {
-        LinearGradient(
-            colors: [
-                darkPurple,
-                Color.black
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
-    }
-}
 
 #Preview {
     ZStack {
@@ -372,5 +356,12 @@ struct ChatBackgroundGradient: View {
 
             StreamingIndicator()
         }
+    }
+}
+
+struct ChatBackgroundGradient: View {
+    var body: some View {
+        Color.black
+            .ignoresSafeArea()
     }
 }

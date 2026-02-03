@@ -649,7 +649,7 @@ extension MessageBubble {
                 .fill(Color.accentColor)
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(.ultraThinMaterial)
+                .fill(Color(.secondarySystemBackground))
         }
     }
 
@@ -720,7 +720,7 @@ struct ToolCallBadge: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Capsule().fill(.ultraThinMaterial))
+        .background(Capsule().fill(Color(.secondarySystemBackground)))
     }
 
     private func formatToolName(_ name: String) -> String {

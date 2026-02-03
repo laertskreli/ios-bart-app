@@ -69,6 +69,7 @@ struct ChatThreadView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            Color.black.ignoresSafeArea()
             ScrollViewReader { proxy in
                 ScrollView {
                     

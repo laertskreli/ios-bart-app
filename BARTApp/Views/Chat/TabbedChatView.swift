@@ -41,6 +41,8 @@ struct TabbedChatView: View {
             }
             .navigationTitle(currentTitle)
             .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         }
         .onChange(of: gateway.subAgents) { _, newAgents in
             if let newest = newAgents.last, newest.status == .running {

@@ -208,6 +208,8 @@ struct ChatThreadView: View {
         }
         .background(ChatBackgroundGradient())
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             // Left: Connection status indicator (liquid glass circle with dot)
             ToolbarItem(placement: .topBarLeading) {
@@ -937,6 +939,8 @@ struct SessionPickerSheet: View {
             }
             .navigationTitle("Sessions")
             .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {

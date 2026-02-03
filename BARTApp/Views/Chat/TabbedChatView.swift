@@ -12,6 +12,9 @@ struct TabbedChatView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottom) {
+                // Solid black background to prevent any translucency
+                Color.black.ignoresSafeArea()
+                
                 TabView(selection: $selectedTab) {
                     ChatThreadView(initialSessionKey: "main", initialTitle: "Main Chat")
                         .tag("main")
@@ -22,6 +25,7 @@ struct TabbedChatView: View {
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
+                .background(Color.black)
 
                 customTabBar
             }
@@ -41,9 +45,10 @@ struct TabbedChatView: View {
             }
             .navigationTitle(currentTitle)
             .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
+        .background(Color.black.ignoresSafeArea())
         .onChange(of: gateway.subAgents) { _, newAgents in
             if let newest = newAgents.last, newest.status == .running {
                 withAnimation(.spring(response: 0.3)) {
@@ -91,7 +96,7 @@ struct TabbedChatView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .background(Color(UIColor.systemBackground))
+        .background(Color.black)
         .overlay(
             Rectangle()
                 .fill(Color.primary.opacity(0.1))
@@ -134,7 +139,7 @@ struct TabButton: View {
                             .matchedGeometryEffect(id: "selectedTab", in: namespace)
                     } else {
                         Capsule()
-                            .fill(Color(UIColor.systemBackground))
+                            .fill(Color.black)
                     }
                 }
             )

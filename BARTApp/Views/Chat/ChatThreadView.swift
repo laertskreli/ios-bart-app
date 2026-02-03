@@ -69,6 +69,7 @@ struct ChatThreadView: View {
 
     var body: some View {
         GeometryReader { geometry in
+            ZStack {
             Color.black.ignoresSafeArea()
             ScrollViewReader { proxy in
                 ScrollView {
@@ -184,6 +185,7 @@ struct ChatThreadView: View {
                         }
                     }
                 }
+            }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {

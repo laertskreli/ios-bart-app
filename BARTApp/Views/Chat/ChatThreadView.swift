@@ -35,7 +35,8 @@ struct ChatThreadView: View {
     @State private var keyboardHeight: CGFloat = 0
 
     // Reply state
-    @State private var showInputBar = false
+    @State private var showInputBar = true
+    @State private var hideToolbar = false
     @State private var replyToMessageId: String?
     @State private var replyToContent: String?
     @State private var replyToRole: String?
@@ -122,6 +123,10 @@ struct ChatThreadView: View {
                 .background(Color.black)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
+                    // Double-tap to toggle toolbar and focus input
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        hideToolbar.toggle()
+                    }
                     // Double-tap to show input bar
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                         showInputBar = true
@@ -250,6 +255,7 @@ struct ChatThreadView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar(hideToolbar ? .hidden : .visible, for: .navigationBar)
         .toolbar {
             // Left: Connection status indicator (liquid glass circle with dot)
             ToolbarItem(placement: .topBarLeading) {

@@ -123,16 +123,9 @@ struct ChatThreadView: View {
                 .background(Color.black)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
-                    // Double-tap to toggle toolbar and focus input
+                    // Double-tap to toggle toolbar visibility
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                         hideToolbar.toggle()
-                    }
-                    // Double-tap to show input bar
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        showInputBar = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        isInputFocused = true
                     }
                 }
                 .onTapGesture(count: 1) {

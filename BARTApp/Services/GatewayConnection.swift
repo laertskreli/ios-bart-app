@@ -2227,6 +2227,39 @@ class GatewayConnection: NSObject, ObservableObject {
             connect()
         }
     }
+
+    // MARK: - Calendar Integration
+    
+    /// Fetch calendar events from authenticated Google Calendar accounts via the agent
+    func fetchCalendarEvents(from: Date, to: Date) async throws -> [[String: Any]] {
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withFullDate]
+        
+        let params: [String: Any] = [
+            "action": "calendar.events",
+            "from": dateFormatter.string(from: from),
+            "to": dateFormatter.string(from: to)
+        ]
+        
+        return try await withCheckedThrowingContinuation { continuation in
+            sendRPC(method: "tools.invoke", params: params) { response in
+                if let error = response["error"] as? [String: Any],
+                   let message = error["message"] as? String {
+                    continuation.resume(throwing: NSError(domain: "GatewayConnection", code: -1, userInfo: [NSLocalizedDescriptionKey: message]))
+                } else if let events = response["events"] as? [[String: Any]] {
+                    continuation.resume(returning: events)
+                } else {
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+    
+    /// Request a calendar query from the agent (asks agent to fetch and return calendar data)
+    func requestCalendarFromAgent(query: String = "Show my calendar for this week", sessionKey: String? = nil) async throws {
+        let message = "[CALENDAR_REQUEST] " + query
+        try await sendMessage(message, sessionKey: sessionKey)
+    }
 }
 
 // MARK: - URLSessionWebSocketDelegate

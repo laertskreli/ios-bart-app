@@ -9,6 +9,7 @@
 
 import SwiftUI
 import Foundation
+import Combine
 
 // MARK: - Models
 
@@ -214,26 +215,214 @@ class CalendarViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showingAgentResponse: Bool = false
     @Published var agentResponse: String?
+    @Published var connectedAccounts: [String] = []  // Google accounts that are authed
     
     private let calendar = Calendar.current
+    private(set) weak var gatewayConnection: GatewayConnection?
+    private var cancellables = Set<AnyCancellable>()
     
-    init() {
-        // Load placeholder data
+    init(gatewayConnection: GatewayConnection? = nil) {
+        self.gatewayConnection = gatewayConnection
+        
+        // Subscribe to incoming messages to catch calendar data responses
+        if let gateway = gatewayConnection {
+            // Listen for conversation updates that might contain calendar data
+            gateway.$conversations
+                .sink { [weak self] conversations in
+                    self?.checkForCalendarData(in: conversations)
+                }
+                .store(in: &cancellables)
+        }
+        
+        // Load placeholder data initially
         loadPlaceholderEvents()
+    }
+    
+    /// Request calendar events from the agent via gog
+    func fetchRealCalendarEvents() async {
+        guard let gateway = gatewayConnection else {
+            errorMessage = "Not connected to gateway"
+            return
+        }
+        
+        isLoading = true
+        errorMessage = nil
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        
+        let today = Date()
+        let nextWeek = calendar.date(byAdding: .day, value: 7, to: today) ?? today
+        
+        let fromDate = dateFormatter.string(from: today)
+        let toDate = dateFormatter.string(from: nextWeek)
+        
+        // Send a request to the agent asking for calendar data
+        let request = "[CALENDAR_REQUEST] Fetch my Google Calendar events from \(fromDate) to \(toDate). Return as JSON with format: [CALENDAR_DATA]{\"events\":[...]}"
+        
+        do {
+            try await gateway.sendMessage(request)
+            // The response will come through the conversations subscriber
+            // Give it a moment then stop loading
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            isLoading = false
+        } catch {
+            errorMessage = error.localizedDescription
+            isLoading = false
+        }
+    }
+    
+    /// Check incoming messages for calendar data
+    private func checkForCalendarData(in conversations: [String: Conversation]) {
+        for (_, conversation) in conversations {
+            for message in conversation.messages.reversed() {
+                // Look for calendar data marker
+                if message.role == .assistant,
+                   message.content.contains("[CALENDAR_DATA]") {
+                    parseCalendarData(from: message.content)
+                    return
+                }
+            }
+        }
+    }
+    
+    /// Parse calendar data from agent response
+    private func parseCalendarData(from content: String) {
+        // Extract JSON between [CALENDAR_DATA] and end of JSON block
+        guard let startRange = content.range(of: "[CALENDAR_DATA]") else { return }
+        let jsonStart = content[startRange.upperBound...]
+        
+        // Find the JSON object
+        guard let jsonStartIndex = jsonStart.firstIndex(of: "{") else { return }
+        let jsonString = String(jsonStart[jsonStartIndex...])
+        
+        // Find matching closing brace
+        var braceCount = 0
+        var endIndex = jsonString.startIndex
+        for (index, char) in jsonString.enumerated() {
+            if char == "{" { braceCount += 1 }
+            if char == "}" { braceCount -= 1 }
+            if braceCount == 0 {
+                endIndex = jsonString.index(jsonString.startIndex, offsetBy: index + 1)
+                break
+            }
+        }
+        
+        let extractedJSON = String(jsonString[..<endIndex])
+        
+        guard let jsonData = extractedJSON.data(using: .utf8) else { return }
+        
+        do {
+            if let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+               let eventsArray = json["events"] as? [[String: Any]] {
+                
+                let parsedEvents = eventsArray.compactMap { parseEvent($0) }
+                
+                Task { @MainActor in
+                    // Merge with existing events, replacing Google ones
+                    self.events = self.events.filter { $0.source != .google } + parsedEvents
+                    self.isLoading = false
+                }
+            }
+        } catch {
+            print("Failed to parse calendar data: \(error)")
+        }
+    }
+    
+    /// Parse a single event from JSON
+    private func parseEvent(_ json: [String: Any]) -> CalendarEvent? {
+        guard let title = json["title"] as? String ?? json["summary"] as? String,
+              let startStr = json["start"] as? String,
+              let endStr = json["end"] as? String else {
+            return nil
+        }
+        
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        // Try parsing with different formats
+        let startDate = isoFormatter.date(from: startStr) ?? parseFlexibleDate(startStr)
+        let endDate = isoFormatter.date(from: endStr) ?? parseFlexibleDate(endStr)
+        
+        guard let start = startDate, let end = endDate else {
+            return nil
+        }
+        
+        let isAllDay = (json["allDay"] as? Bool) ?? ((json["start"] as? String)?.count == 10)
+        
+        var attendees: [CalendarAttendee] = []
+        if let attendeesArray = json["attendees"] as? [[String: Any]] {
+            attendees = attendeesArray.compactMap { att in
+                guard let email = att["email"] as? String else { return nil }
+                let name = att["displayName"] as? String ?? email.components(separatedBy: "@").first ?? email
+                let statusStr = att["responseStatus"] as? String ?? "needsAction"
+                let status: AttendeeStatus = {
+                    switch statusStr {
+                    case "accepted": return .accepted
+                    case "declined": return .declined
+                    case "tentative": return .tentative
+                    default: return .pending
+                    }
+                }()
+                return CalendarAttendee(name: name, email: email, status: status)
+            }
+        }
+        
+        return CalendarEvent(
+            id: json["id"] as? String ?? UUID().uuidString,
+            title: title,
+            startTime: start,
+            endTime: end,
+            isAllDay: isAllDay,
+            source: .google,
+            location: json["location"] as? String,
+            videoCallURL: (json["hangoutLink"] as? String).flatMap { URL(string: $0) },
+            attendees: attendees,
+            notes: json["description"] as? String
+        )
+    }
+    
+    private func parseFlexibleDate(_ str: String) -> Date? {
+        let formatters: [DateFormatter] = [
+            { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"; return f }(),
+            { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; return f }(),
+            { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
+        ]
+        for formatter in formatters {
+            if let date = formatter.date(from: str) { return date }
+        }
+        return nil
     }
     
     func loadEvents() async {
         isLoading = true
-        // Simulate API delay
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        loadPlaceholderEvents()
-        isLoading = false
+        
+        // Try to fetch real events if connected
+        if gatewayConnection != nil {
+            await fetchRealCalendarEvents()
+        } else {
+            // Fall back to placeholder
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            loadPlaceholderEvents()
+            isLoading = false
+        }
     }
     
     func refreshEvents() async {
-        await loadEvents()
     }
     
+    /// Connect to gateway for real calendar data
+    func setGateway(_ gateway: GatewayConnection) {
+        self.gatewayConnection = gateway
+        // Subscribe to conversations
+        gateway.$conversations
+            .sink { [weak self] conversations in
+                self?.checkForCalendarData(in: conversations)
+            }
+            .store(in: &cancellables)
+
+        Task { await loadEvents() }
+    }
     private func loadPlaceholderEvents() {
         let now = Date()
         let calendar = Calendar.current
@@ -374,6 +563,7 @@ class CalendarViewModel: ObservableObject {
 // MARK: - Calendar View
 
 struct CalendarView: View {
+    @EnvironmentObject var gateway: GatewayConnection
     @StateObject private var viewModel = CalendarViewModel()
     @State private var viewMode: CalendarViewMode = .month
     @State private var showingEventDetail: CalendarEvent?
@@ -477,6 +667,7 @@ struct CalendarView: View {
                 AddEventSheet(viewModel: viewModel, selectedDate: viewModel.selectedDate)
             }
             .task {
+                viewModel.setGateway(gateway)
                 await viewModel.loadEvents()
             }
             .refreshable {

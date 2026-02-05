@@ -376,7 +376,7 @@ class CalendarViewModel: ObservableObject {
             isAllDay: isAllDay,
             source: .google,
             location: json["location"] as? String,
-            videoCallURL: (json["hangoutLink"] as? String).flatMap { URL(string: $0) },
+            videoCallURL: (json["hangoutLink"] as? String ?? json["meet"] as? String).flatMap { URL(string: $0) },
             attendees: attendees,
             notes: json["description"] as? String
         )
@@ -384,7 +384,7 @@ class CalendarViewModel: ObservableObject {
     
     private func parseFlexibleDate(_ str: String) -> Date? {
         let formatters: [DateFormatter] = [
-            { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"; return f }(),
+            { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXX"; return f }(),
             { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"; return f }(),
             { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
         ]

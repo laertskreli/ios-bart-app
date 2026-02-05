@@ -21,7 +21,7 @@ enum PairingState: Equatable {
 // MARK: - Device Identity Manager with Ed25519 Cryptographic Signing
 
 class DeviceIdentityManager {
-    static let shared = DeviceIdentityManager()
+    nonisolated(unsafe) static let shared = DeviceIdentityManager()
 
     private let keychainTag = "com.openclaw.ed25519key"
 

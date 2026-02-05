@@ -185,6 +185,17 @@ struct PairingView: View {
             .padding(.bottom, 40)
         }
         .padding()
+        #if DEBUG
+        .onAppear {
+            // Auto-connect in DEBUG for simulator testing
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                if case .disconnected = gateway.connectionState {
+                    print("🔧 DEBUG: Auto-initiating gateway connection...")
+                    gateway.connect()
+                }
+            }
+        }
+        #endif
     }
 }
 

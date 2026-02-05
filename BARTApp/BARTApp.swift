@@ -39,7 +39,6 @@ struct AppContentView: View {
         RootView()
             .preferredColorScheme(.dark)
             .onAppear {
-                
                 // Give AppDelegate access to gateway for push token registration
                 appDelegate.gateway = gateway
 
@@ -47,17 +46,21 @@ struct AppContentView: View {
                 if let storedToken = UserDefaults.standard.string(forKey: "apnsDeviceToken") {
                     gateway.registerPushToken(storedToken)
                 }
+                
+                // Auto-connect on app launch if we have credentials
+                // (onChange doesn't fire for initial scenePhase value)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    gateway.handleAppDidBecomeActive()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openClawOpenSession)) { notification in
                 if let sessionKey = notification.userInfo?["sessionKey"] as? String {
-                    // Handle opening the session from notification
                     print("📲 Open session from notification: \(sessionKey)")
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: .openClawReply)) { notification in
                 if let sessionKey = notification.userInfo?["sessionKey"] as? String,
                    let text = notification.userInfo?["text"] as? String {
-                    // Handle reply from notification
                     print("📝 Sending reply from notification to \(sessionKey)")
                     Task {
                         try? await gateway.sendMessage(text, sessionKey: sessionKey)
@@ -73,7 +76,6 @@ struct AppContentView: View {
         switch newPhase {
         case .active:
             print("📱 App became active")
-            // Delay slightly to ensure view is fully loaded
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 gateway.handleAppDidBecomeActive()
             }

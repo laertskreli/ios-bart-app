@@ -2278,17 +2278,21 @@ extension GatewayConnection: URLSessionWebSocketDelegate, URLSessionTaskDelegate
             return
         }
 
-        // Handle "pairing required" (code 1008) - this is a PENDING state, not a failure!
+        // Handle "pairing required" or "device identity required" (code 1008) - this is a PENDING state, not a failure!
         // The gateway sends this when the device needs approval before connecting.
         // We should show the "Waiting for approval" screen, not an error.
-        if closeCode.rawValue == 1008 && reasonString == "pairing required" {
-            print("📋 Pairing required - starting pairing approval flow")
+        let needsPairing = reasonString == "pairing required" || reasonString == "device identity required" || reasonString.contains("identity required")
+        if closeCode.rawValue == 1008 && needsPairing {
+            print("📋 Pairing required (\(reasonString)) - reconnecting to request pairing")
             Task { @MainActor in
-                self.connectionState = .connecting
+                self.connectionState = .disconnected
                 self.isHandshakeComplete = false
-                // requestPairing() will set pairingState to .pendingApproval
-                // and start polling for approval
-                self.requestPairing()
+                // Reconnect after a short delay - the gateway will allow us to request pairing
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                    guard let self = self else { return }
+                    print("🔄 Reconnecting to request pairing...")
+                    self.connect()
+                }
             }
             return
         }

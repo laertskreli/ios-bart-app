@@ -32,15 +32,18 @@ struct ChatThreadView: View {
     @State private var sendAnimationTrigger = false
     @State private var sendRippleScale: CGFloat = 1.0
     @State private var sendRippleOpacity: Double = 0.0
+    @State private var keyboardHeight: CGFloat = 0
 
     // Reply state
+    @State private var showInputBar = false
     @State private var replyToMessageId: String?
     @State private var replyToContent: String?
     @State private var replyToRole: String?
 
     // Keyboard notification
-    private let keyboardWillShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
     private let replyNotification = NotificationCenter.default.publisher(for: .replyToMessage)
+    private let keyboardWillShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+    private let keyboardWillHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
 
     private var conversation: Conversation? {
         gateway.conversations[currentSessionKey]
@@ -68,55 +71,70 @@ struct ChatThreadView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
+        ZStack {
             Color.black.ignoresSafeArea()
-            ScrollViewReader { proxy in
-                ScrollView {
-                    
-                    LazyVStack(spacing: 12) {
-                        if messages.isEmpty && !showTypingIndicator {
-                            emptyStateView
-                                .frame(height: geometry.size.height * 0.6)
-                                .scaleEffect(y: -1)
-                        } else {
-                            // Bottom anchor for scrolling (now at top due to flip)
-                            Color.clear
-                                .frame(height: 1)
-                                .id("bottom")
+            GeometryReader { geometry in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            // Spacer pushes content to bottom
+                            Spacer(minLength: 0)
+                            
+                            LazyVStack(spacing: 12) {
+                                if messages.isEmpty && !showTypingIndicator {
+                                    emptyStateView
+                                        .frame(maxHeight: 400)
+                                        
+                                } else {
+                                    // Connection status inline message
+                                    if showConnectionToast {
+                                        ConnectionStatusMessage()
+                                            .id("connection-status")
+                                    }
 
-                            // Connection status inline message
-                            if showConnectionToast {
-                                ConnectionStatusMessage()
-                                    .id("connection-status")
-                                    .scaleEffect(y: -1)
-                            }
+                                    // Messages in natural order (oldest first)
+                                    ForEach(messages) { message in
+                                        MessageBubble(message: message, onComponentAction: handleComponentAction)
+                                            .id(message.id)
+                                    }
 
-                            if showTypingIndicator {
-                                TypingIndicatorBubble()
-                                    .id("typing-indicator")
-                                    .scaleEffect(y: -1)
-                            }
+                                    // Typing indicator at bottom (after messages)
+                                    if showTypingIndicator {
+                                        TypingIndicatorBubble()
+                                            .id("typing-indicator")
+                                    }
 
-                            ForEach(messages.reversed()) { message in
-                                MessageBubble(message: message, onComponentAction: handleComponentAction)
-                                    .id(message.id)
-                                    .scaleEffect(y: -1)
+                                    // Bottom anchor for scroll-to-bottom
+                                    Color.clear
+                                        .frame(height: 1)
+                                        .id("bottom")
+                                }
                             }
+                            .padding(.horizontal)
                         }
+                        .frame(minHeight: geometry.size.height)
                     }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 8)
-                }
-                .scaleEffect(y: -1)
-                .scrollDismissesKeyboard(.interactively)
+                
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.never)
                 .scrollIndicators(.hidden)
                 .scrollContentBackground(.hidden)
                 .background(Color.black)
-                .onTapGesture {
-                    // Dismiss keyboard when tapping outside
-                    isInputFocused = false
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    // Double-tap to show input bar
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        showInputBar = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        isInputFocused = true
+                    }
+                }
+                .onTapGesture(count: 1) {
+                    // Single tap dismisses keyboard if shown
+                    if isInputFocused {
+                        isInputFocused = false
+                    }
                 }
                 .onAppear {
                     scrollProxy = proxy
@@ -132,9 +150,19 @@ struct ChatThreadView: View {
                     }
                 }
                 .onReceive(keyboardWillShow) { _ in
-                    // Scroll to bottom whenever keyboard appears (including returning from navigation)
+                    // Scroll to bottom whenever keyboard appears
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         scrollToBottom(animated: true)
+                    }
+                }
+                .onReceive(keyboardWillHide) { _ in
+                    // Collapse input bar when keyboard hides (after a small delay to allow for keyboard switching)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        if !isInputFocused {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                showInputBar = false
+                            }
+                        }
                     }
                 }
                 .onChange(of: messages.count) { oldCount, newCount in
@@ -185,20 +213,51 @@ struct ChatThreadView: View {
                         }
                     }
                 }
-            }
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                // Reply preview bar
-                if replyToMessageId != nil {
-                    replyPreviewBar
+                if showInputBar {
+                    // Reply preview bar
+                    if replyToMessageId != nil {
+                        replyPreviewBar
+                    }
+                    // Attachment preview bar
+                    if !attachments.isEmpty {
+                        attachmentPreviewBar
+                    }
+                    inputBar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
-                // Attachment preview bar
-                if !attachments.isEmpty {
-                    attachmentPreviewBar
+            }
+            .background(Color.black)
+            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showInputBar)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            // Floating compose button when input bar is hidden
+            if !showInputBar {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        showInputBar = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        isInputFocused = true
+                    }
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(
+                            Circle()
+                                .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
+                                .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
+                        )
                 }
-                inputBar
+                .padding(.trailing, 20)
+                .padding(.bottom, 20)
+                .transition(.scale.combined(with: .opacity))
             }
         }
         .onReceive(replyNotification) { notification in
@@ -213,7 +272,7 @@ struct ChatThreadView: View {
                 isInputFocused = true
             }
         }
-        .background(ChatBackgroundGradient())
+        
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
@@ -459,7 +518,7 @@ struct ChatThreadView: View {
                         ZStack {
                             // Ripple effect layer
                             Circle()
-                                .fill(Color.accentColor.opacity(0.3))
+                                .fill(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.3))
                                 .frame(width: 32, height: 32)
                                 .scaleEffect(sendRippleScale)
                                 .opacity(sendRippleOpacity)
@@ -471,7 +530,7 @@ struct ChatThreadView: View {
                                 .frame(width: 32, height: 32)
                                 .background(
                                     Circle()
-                                        .fill(canSend ? Color.accentColor : Color(.systemGray4))
+                                        .fill(canSend ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color(red: 0.55, green: 0.55, blue: 0.57))
                                 )
                                 .scaleEffect(sendAnimationTrigger ? 0.85 : 1.0)
                         }
@@ -490,7 +549,7 @@ struct ChatThreadView: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(Color.black)
-            .ignoresSafeArea(edges: .bottom)
+            
         }
     }
 
@@ -876,11 +935,15 @@ struct SessionPickerButton: View {
         }
         .sheet(isPresented: $showPicker) {
             SessionPickerSheet(sessions: sessions, currentSessionKey: currentSessionKey, onSelect: { session in
-                onSelect(session)
                 showPicker = false
+                // Delay the session switch to let sheet dismiss first
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    onSelect(session)
+                }
             })
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
+            .presentationBackground(.black)
         }
     }
 }

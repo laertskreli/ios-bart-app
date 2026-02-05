@@ -3,429 +3,386 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 56;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1000001 /* BARTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001 /* BARTApp.swift */; };
-		A1000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000002 /* RootView.swift */; };
-		A1000003 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000003 /* Assets.xcassets */; };
-		A1000206 /* APNsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000206 /* APNsManager.swift */; };
-		A1000010 /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000010 /* DeviceIdentity.swift */; };
-		A1000011 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000011 /* Conversation.swift */; };
-		A1000012 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000012 /* Message.swift */; };
-		A1000013 /* SubAgentInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013 /* SubAgentInfo.swift */; };
-		A1000014 /* LocationShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014 /* LocationShare.swift */; };
-		A1000015 /* GatewayTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015 /* GatewayTypes.swift */; };
-		A1000020 /* GatewayConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000020 /* GatewayConnection.swift */; };
-		A1000021 /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000021 /* LocationManager.swift */; };
-		A1000030 /* AnyCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000030 /* AnyCodable.swift */; };
-		A1000031 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000031 /* KeychainHelper.swift */; };
-		A1000040 /* GlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000040 /* GlassBackground.swift */; };
-		A1000041 /* ConnectionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000041 /* ConnectionStatusView.swift */; };
-		A1000050 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000050 /* PairingView.swift */; };
-		A1000051 /* PairingPendingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000051 /* PairingPendingView.swift */; };
-		A1000052 /* PairingFailedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000052 /* PairingFailedView.swift */; };
-		A1000060 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000060 /* MainView.swift */; };
-		A1000061 /* ChatThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000061 /* ChatThreadView.swift */; };
-		A1000062 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000062 /* MessageBubble.swift */; };
-		A1000063 /* SimpleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000063 /* SimpleChatView.swift */; };
-		A1000064 /* TabbedChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000064 /* TabbedChatView.swift */; };
-		A1000070 /* LocationShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000070 /* LocationShareSheet.swift */; };
-		A1000080 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000080 /* SettingsView.swift */; };
-		A1000090 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000090 /* Configuration.swift */; };
-		A1000100 /* QRPairingPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000100 /* QRPairingPayload.swift */; };
-		A1000101 /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000101 /* QRScannerView.swift */; };
-		A1000102 /* ManualPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000102 /* ManualPairingView.swift */; };
-		A24112952F2F334F005E4DC7 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24112942F2F334F005E4DC7 /* NotificationManager.swift */; };
-		A1000200 /* InteractiveComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000200 /* InteractiveComponent.swift */; };
-		A1000201 /* ContentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000201 /* ContentParser.swift */; };
-		A1000202 /* InteractiveComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000202 /* InteractiveComponents.swift */; };
-		A1000203 /* ContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000203 /* ContentResolver.swift */; };
-		A1000204 /* ResolvedComponentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000204 /* ResolvedComponentViews.swift */; };
-		A1000205 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000205 /* AppDelegate.swift */; };
-		A1000208 /* DeviceAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000208 /* DeviceAuthManager.swift */; };
-		A1000209 /* CryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000209 /* CryptoManager.swift */; };
+		000581EB9F52DD178D6BE360 /* PairingFailedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA3EB655B04075EED0D9208E /* PairingFailedView.swift */; };
+		0454F9CDC3E57D51A3C94F62 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8421F6F297F35720C870FAB4 /* AppDelegate.swift */; };
+		0A6AE801D0F2D876E8B45B1F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC41D647E1D193BF0624CD88 /* SettingsView.swift */; };
+		0CC65ECE250A080CB1CD579A /* QRScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC4FA06E43C2E7DFC443C58 /* QRScannerView.swift */; };
+		164A9C80B55C1B0A3C7232B7 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85BE668B7C3DC89856EA1BC6 /* RootView.swift */; };
+		1E53924B2B34610960BB087F /* TradingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12E83D64B1F948814DCA2D7C /* TradingView.swift */; };
+		43137C69B0918C8468F46B33 /* ConnectionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BB2FFDAF68FDFCFFF8B848F /* ConnectionStatusView.swift */; };
+		456A974DC2519C88C4FBAE9C /* LocationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E2F3951FA570A1EA0295973 /* LocationManager.swift */; };
+		4612260907782454E577D45D /* EmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791AD2623A9A6441C25A86F5 /* EmailView.swift */; };
+		4BDFF13518392DF59EEE0675 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0557D61F95E721721DC2639E /* Configuration.swift */; };
+		4D740B85864C6CC422506B56 /* Conversation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0671AF9EFCC2CA7DF3801AEF /* Conversation.swift */; };
+		560F6E82A62CBA05A9140339 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E90AAF6C8271116B58CAF06F /* MainTabView.swift */; };
+		5BED05496E5D935BCD9D982B /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70DA8652F87C20292AC04CB9 /* NotificationManager.swift */; };
+		65DDEB5ADAB0F0D48DF5E2F2 /* ContentResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD772CEAA86ABCD059BECE03 /* ContentResolver.swift */; };
+		692593503F1314CB85D77B29 /* LocationShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 505D5F5D0A48973C7E54AF7B /* LocationShareSheet.swift */; };
+		6B416830EE26731E8C2389F5 /* ManualPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98C00D2C2DF575CC76EBCA09 /* ManualPairingView.swift */; };
+		6B72AE0E8015F07ECACD74F1 /* GatewayConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B53CD04B4544A389BEB88254 /* GatewayConnection.swift */; };
+		6C8ADE1ED1734EBF23EC210D /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F9FA8A166F674FD26D9AC67 /* KeychainHelper.swift */; };
+		6CAE5B3FE73B69000DE5989E /* LocationShare.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E842951A289BA040B3F49D8 /* LocationShare.swift */; };
+		6FEE4835FF26B0BD4E94C730 /* TabbedChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA7324E55AB9C09E8D6E5EB /* TabbedChatView.swift */; };
+		8EA3A7A7297D67EC59A1EC37 /* GlassBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99073DF230FCDCE96A38338E /* GlassBackground.swift */; };
+		9570E836EAD9CDACA612992F /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFDFDFD48C3F9C6C5027B8C3 /* MessageBubble.swift */; };
+		9682A7513463630EA27BAC7D /* SubAgentInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3C00F0193ABB0BCD487C02 /* SubAgentInfo.swift */; };
+		9B5355AB51DFBD9A437019E2 /* SimpleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA39AF0AEE1FA1091B724CAE /* SimpleChatView.swift */; };
+		9BE6275BD2DDA6AF6FAFAC35 /* ChatThreadView.swift.backup in Resources */ = {isa = PBXBuildFile; fileRef = 9221811736B64351F8395743 /* ChatThreadView.swift.backup */; };
+		A5747EBA12FB071FD69D19D7 /* InteractiveComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0293F2A79452D546AE5084 /* InteractiveComponents.swift */; };
+		A80E38C714F6DBFAA076C5E5 /* CryptoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8B131F53501124FF443D9F /* CryptoManager.swift */; };
+		ADE102F00936DA7DC971DD96 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2591EE2F1C5ECAA2B24C6AE3 /* CalendarView.swift */; };
+		B9B756407D28139C4BC04DB6 /* DeviceAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55127DA918ED6FDD801D8E0C /* DeviceAuthManager.swift */; };
+		BABBAED126461E652B34006C /* GatewayTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB17DBEA2BBEECF262906314 /* GatewayTypes.swift */; };
+		BDDAA0E91931AB7535AD3EA6 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281C46F8FC01A74E2D14C3AC /* PairingView.swift */; };
+		BE6A34A32F15675C23B5723F /* APNsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75A0505C39A6BFA20FE54026 /* APNsManager.swift */; };
+		C31657CFC28A211F828F577F /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05207F3A90BBEA4D00A40F96 /* Message.swift */; };
+		C3489348DA32CD60E6DCDBA2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D131B033A887DB35F7F852DB /* Assets.xcassets */; };
+		C6A72B2572EFBF9E78933C12 /* TasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D26180A04E76D2EDACA1C07B /* TasksView.swift */; };
+		C97F555DBF093AC74B6A6FBD /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA5D53E294B78C15D528AB54 /* MainView.swift */; };
+		D6ACF3544CF50CE8E8DA2D1E /* ResolvedComponentViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E595D3123880F6F8BA6E8D5A /* ResolvedComponentViews.swift */; };
+		D7D62644BD54C99917ABEC5E /* InteractiveComponent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66E4CDEB6D6FA9ACE6F854BE /* InteractiveComponent.swift */; };
+		DD53C6F5BB5F2326092EEB54 /* ContentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3099690E213CB6FBDE8BBF0 /* ContentParser.swift */; };
+		E660CFDD8FDDC63FD0869EFD /* BARTApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F6A3B441969F370D163EBC /* BARTApp.swift */; };
+		EB16AD28ADB228F862D038F3 /* PairingPendingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5706767B5E53C903F74E62E7 /* PairingPendingView.swift */; };
+		F3C7CC9F4CBD76DCDD5A356B /* ChatThreadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2FEFAC12A5758E7A33DB1B /* ChatThreadView.swift */; };
+		F67B2D700513C90E807D1A2E /* AnyCodable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD763AB13233D997EE0C5A23 /* AnyCodable.swift */; };
+		FA110C3207387716FFF1056F /* DeviceIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB296911715A951077628E1 /* DeviceIdentity.swift */; };
+		FC3B7A9C617BA059E5D22D2D /* QRPairingPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15A8D7847F8A6D0B02D3DEC3 /* QRPairingPayload.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A2000000 /* BARTApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BARTApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A2000001 /* BARTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BARTApp.swift; sourceTree = "<group>"; };
-		A2000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		A2000003 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A2000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A2000010 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
-		A2000011 /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
-		A2000012 /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
-		A2000013 /* SubAgentInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubAgentInfo.swift; sourceTree = "<group>"; };
-		A2000014 /* LocationShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationShare.swift; sourceTree = "<group>"; };
-		A2000015 /* GatewayTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayTypes.swift; sourceTree = "<group>"; };
-		A2000020 /* GatewayConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayConnection.swift; sourceTree = "<group>"; };
-		A2000021 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
-		A2000030 /* AnyCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyCodable.swift; sourceTree = "<group>"; };
-		A2000031 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		A2000040 /* GlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBackground.swift; sourceTree = "<group>"; };
-		A2000041 /* ConnectionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusView.swift; sourceTree = "<group>"; };
-		A2000050 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
-		A2000051 /* PairingPendingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPendingView.swift; sourceTree = "<group>"; };
-		A2000052 /* PairingFailedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingFailedView.swift; sourceTree = "<group>"; };
-		A2000060 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
-		A2000061 /* ChatThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatThreadView.swift; sourceTree = "<group>"; };
-		A2000062 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
-		A2000063 /* SimpleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleChatView.swift; sourceTree = "<group>"; };
-		A2000064 /* TabbedChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabbedChatView.swift; sourceTree = "<group>"; };
-		A2000070 /* LocationShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationShareSheet.swift; sourceTree = "<group>"; };
-		A2000080 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		A2000090 /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
-		A2000100 /* QRPairingPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPairingPayload.swift; sourceTree = "<group>"; };
-		A2000101 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
-		A2000102 /* ManualPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualPairingView.swift; sourceTree = "<group>"; };
-		A24112942F2F334F005E4DC7 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		A2000200 /* InteractiveComponent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveComponent.swift; sourceTree = "<group>"; };
-		A2000201 /* ContentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentParser.swift; sourceTree = "<group>"; };
-		A2000202 /* InteractiveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveComponents.swift; sourceTree = "<group>"; };
-		A2000203 /* ContentResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentResolver.swift; sourceTree = "<group>"; };
-		A2000204 /* ResolvedComponentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResolvedComponentViews.swift; sourceTree = "<group>"; };
-		A2000205 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		A2000206 /* APNsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APNsManager.swift; sourceTree = "<group>"; };
-		A2000207 /* BARTApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BARTApp.entitlements; sourceTree = "<group>"; };
-		A2000208 /* DeviceAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAuthManager.swift; sourceTree = "<group>"; };
-		A2000209 /* CryptoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManager.swift; sourceTree = "<group>"; };
+		05207F3A90BBEA4D00A40F96 /* Message.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Message.swift; sourceTree = "<group>"; };
+		0557D61F95E721721DC2639E /* Configuration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
+		0671AF9EFCC2CA7DF3801AEF /* Conversation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Conversation.swift; sourceTree = "<group>"; };
+		12E83D64B1F948814DCA2D7C /* TradingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradingView.swift; sourceTree = "<group>"; };
+		15A8D7847F8A6D0B02D3DEC3 /* QRPairingPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRPairingPayload.swift; sourceTree = "<group>"; };
+		2591EE2F1C5ECAA2B24C6AE3 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
+		281C46F8FC01A74E2D14C3AC /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
+		2C563FAC3A3627ECC1E72E15 /* BARTApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BARTApp.entitlements; sourceTree = "<group>"; };
+		4BB2FFDAF68FDFCFFF8B848F /* ConnectionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatusView.swift; sourceTree = "<group>"; };
+		4FA7324E55AB9C09E8D6E5EB /* TabbedChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabbedChatView.swift; sourceTree = "<group>"; };
+		505D5F5D0A48973C7E54AF7B /* LocationShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationShareSheet.swift; sourceTree = "<group>"; };
+		55127DA918ED6FDD801D8E0C /* DeviceAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceAuthManager.swift; sourceTree = "<group>"; };
+		5706767B5E53C903F74E62E7 /* PairingPendingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPendingView.swift; sourceTree = "<group>"; };
+		5BC4FA06E43C2E7DFC443C58 /* QRScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerView.swift; sourceTree = "<group>"; };
+		66E4CDEB6D6FA9ACE6F854BE /* InteractiveComponent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveComponent.swift; sourceTree = "<group>"; };
+		6E842951A289BA040B3F49D8 /* LocationShare.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationShare.swift; sourceTree = "<group>"; };
+		6F9FA8A166F674FD26D9AC67 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		70DA8652F87C20292AC04CB9 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		75A0505C39A6BFA20FE54026 /* APNsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APNsManager.swift; sourceTree = "<group>"; };
+		791AD2623A9A6441C25A86F5 /* EmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailView.swift; sourceTree = "<group>"; };
+		80F6A3B441969F370D163EBC /* BARTApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BARTApp.swift; sourceTree = "<group>"; };
+		8421F6F297F35720C870FAB4 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		85BE668B7C3DC89856EA1BC6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		9221811736B64351F8395743 /* ChatThreadView.swift.backup */ = {isa = PBXFileReference; lastKnownFileType = text; path = ChatThreadView.swift.backup; sourceTree = "<group>"; };
+		98C00D2C2DF575CC76EBCA09 /* ManualPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualPairingView.swift; sourceTree = "<group>"; };
+		99073DF230FCDCE96A38338E /* GlassBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBackground.swift; sourceTree = "<group>"; };
+		9E2F3951FA570A1EA0295973 /* LocationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationManager.swift; sourceTree = "<group>"; };
+		B53CD04B4544A389BEB88254 /* GatewayConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayConnection.swift; sourceTree = "<group>"; };
+		BA3C00F0193ABB0BCD487C02 /* SubAgentInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubAgentInfo.swift; sourceTree = "<group>"; };
+		BA5D53E294B78C15D528AB54 /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainView.swift; sourceTree = "<group>"; };
+		BD763AB13233D997EE0C5A23 /* AnyCodable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyCodable.swift; sourceTree = "<group>"; };
+		BE2FEFAC12A5758E7A33DB1B /* ChatThreadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatThreadView.swift; sourceTree = "<group>"; };
+		BF8B131F53501124FF443D9F /* CryptoManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CryptoManager.swift; sourceTree = "<group>"; };
+		C46EA3338B9884B0B4B86411 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		CA3EB655B04075EED0D9208E /* PairingFailedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingFailedView.swift; sourceTree = "<group>"; };
+		CC41D647E1D193BF0624CD88 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		CD772CEAA86ABCD059BECE03 /* ContentResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentResolver.swift; sourceTree = "<group>"; };
+		CFDFDFD48C3F9C6C5027B8C3 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
+		D131B033A887DB35F7F852DB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D26180A04E76D2EDACA1C07B /* TasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksView.swift; sourceTree = "<group>"; };
+		D3099690E213CB6FBDE8BBF0 /* ContentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentParser.swift; sourceTree = "<group>"; };
+		DB17DBEA2BBEECF262906314 /* GatewayTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayTypes.swift; sourceTree = "<group>"; };
+		E0872111D737E5EF8B02E9F3 /* BARTApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BARTApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E595D3123880F6F8BA6E8D5A /* ResolvedComponentViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResolvedComponentViews.swift; sourceTree = "<group>"; };
+		E90AAF6C8271116B58CAF06F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		ED0293F2A79452D546AE5084 /* InteractiveComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InteractiveComponents.swift; sourceTree = "<group>"; };
+		FA39AF0AEE1FA1091B724CAE /* SimpleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimpleChatView.swift; sourceTree = "<group>"; };
+		FDB296911715A951077628E1 /* DeviceIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceIdentity.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		A3000001 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXGroup section */
-		A4000000 = {
+		05BF4ACE5167C5FFAC4C059F /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A24112942F2F334F005E4DC7 /* NotificationManager.swift */,
-				A4000001 /* BARTApp */,
-				A4000002 /* Products */,
-			);
-			sourceTree = "<group>";
-		};
-		A4000001 /* BARTApp */ = {
-			isa = PBXGroup;
-			children = (
-				A2000001 /* BARTApp.swift */,
-				A2000205 /* AppDelegate.swift */,
-				A2000090 /* Configuration.swift */,
-				A2000004 /* Info.plist */,
-				A2000207 /* BARTApp.entitlements */,
-				A2000003 /* Assets.xcassets */,
-				A4000010 /* Models */,
-				A4000020 /* Services */,
-				A4000030 /* Utilities */,
-				A4000040 /* Views */,
-			);
-			path = BARTApp;
-			sourceTree = "<group>";
-		};
-		A4000002 /* Products */ = {
-			isa = PBXGroup;
-			children = (
-				A2000000 /* BARTApp.app */,
-			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		A4000010 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				A2000010 /* DeviceIdentity.swift */,
-				A2000011 /* Conversation.swift */,
-				A2000012 /* Message.swift */,
-				A2000013 /* SubAgentInfo.swift */,
-				A2000014 /* LocationShare.swift */,
-				A2000015 /* GatewayTypes.swift */,
-				A2000100 /* QRPairingPayload.swift */,
-				A2000200 /* InteractiveComponent.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		A4000020 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				A2000020 /* GatewayConnection.swift */,
-				A2000021 /* LocationManager.swift */,
-				A2000206 /* APNsManager.swift */,
-				A2000208 /* DeviceAuthManager.swift */,
-				A2000209 /* CryptoManager.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
-		A4000030 /* Utilities */ = {
-			isa = PBXGroup;
-			children = (
-				A2000030 /* AnyCodable.swift */,
-				A2000031 /* KeychainHelper.swift */,
-				A2000201 /* ContentParser.swift */,
-				A2000203 /* ContentResolver.swift */,
-			);
-			path = Utilities;
-			sourceTree = "<group>";
-		};
-		A4000040 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				A2000002 /* RootView.swift */,
-				A4000041 /* Components */,
-				A4000042 /* Pairing */,
-				A4000043 /* Chat */,
-				A4000044 /* Location */,
-				A4000045 /* Settings */,
+				E90AAF6C8271116B58CAF06F /* MainTabView.swift */,
+				85BE668B7C3DC89856EA1BC6 /* RootView.swift */,
+				A0F000784B2C7948BFB4976B /* Chat */,
+				E2D06E1DC1AEEBB0F0DE6EC9 /* Components */,
+				781364EDF72F7A6E1CFF0B28 /* Location */,
+				58FEFEE9806CF38987C5FE83 /* Pairing */,
+				384AAE35BCBBD9A43FA393C6 /* Settings */,
+				8337DBBC426D9D2679A894CA /* Tabs */,
 			);
 			path = Views;
 			sourceTree = "<group>";
 		};
-		A4000041 /* Components */ = {
+		071311D13B1295A23AE5D1D9 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				A2000040 /* GlassBackground.swift */,
-				A2000041 /* ConnectionStatusView.swift */,
-				A2000202 /* InteractiveComponents.swift */,
-				A2000204 /* ResolvedComponentViews.swift */,
+				BD763AB13233D997EE0C5A23 /* AnyCodable.swift */,
+				D3099690E213CB6FBDE8BBF0 /* ContentParser.swift */,
+				CD772CEAA86ABCD059BECE03 /* ContentResolver.swift */,
+				6F9FA8A166F674FD26D9AC67 /* KeychainHelper.swift */,
 			);
-			path = Components;
+			path = Utilities;
 			sourceTree = "<group>";
 		};
-		A4000042 /* Pairing */ = {
+		0A35A40A37C5C59FCFBEA43E /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				A2000050 /* PairingView.swift */,
-				A2000051 /* PairingPendingView.swift */,
-				A2000052 /* PairingFailedView.swift */,
-				A2000101 /* QRScannerView.swift */,
-				A2000102 /* ManualPairingView.swift */,
+				0671AF9EFCC2CA7DF3801AEF /* Conversation.swift */,
+				FDB296911715A951077628E1 /* DeviceIdentity.swift */,
+				DB17DBEA2BBEECF262906314 /* GatewayTypes.swift */,
+				66E4CDEB6D6FA9ACE6F854BE /* InteractiveComponent.swift */,
+				6E842951A289BA040B3F49D8 /* LocationShare.swift */,
+				05207F3A90BBEA4D00A40F96 /* Message.swift */,
+				15A8D7847F8A6D0B02D3DEC3 /* QRPairingPayload.swift */,
+				BA3C00F0193ABB0BCD487C02 /* SubAgentInfo.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		12DB252CFA533C014E267ABD /* BARTApp */ = {
+			isa = PBXGroup;
+			children = (
+				8421F6F297F35720C870FAB4 /* AppDelegate.swift */,
+				D131B033A887DB35F7F852DB /* Assets.xcassets */,
+				2C563FAC3A3627ECC1E72E15 /* BARTApp.entitlements */,
+				80F6A3B441969F370D163EBC /* BARTApp.swift */,
+				0557D61F95E721721DC2639E /* Configuration.swift */,
+				C46EA3338B9884B0B4B86411 /* Info.plist */,
+				0A35A40A37C5C59FCFBEA43E /* Models */,
+				36C9B6237D0D52E40EDF1796 /* Services */,
+				071311D13B1295A23AE5D1D9 /* Utilities */,
+				05BF4ACE5167C5FFAC4C059F /* Views */,
+			);
+			path = BARTApp;
+			sourceTree = "<group>";
+		};
+		36C9B6237D0D52E40EDF1796 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				75A0505C39A6BFA20FE54026 /* APNsManager.swift */,
+				BF8B131F53501124FF443D9F /* CryptoManager.swift */,
+				55127DA918ED6FDD801D8E0C /* DeviceAuthManager.swift */,
+				B53CD04B4544A389BEB88254 /* GatewayConnection.swift */,
+				9E2F3951FA570A1EA0295973 /* LocationManager.swift */,
+				70DA8652F87C20292AC04CB9 /* NotificationManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		384AAE35BCBBD9A43FA393C6 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				CC41D647E1D193BF0624CD88 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		58FEFEE9806CF38987C5FE83 /* Pairing */ = {
+			isa = PBXGroup;
+			children = (
+				98C00D2C2DF575CC76EBCA09 /* ManualPairingView.swift */,
+				CA3EB655B04075EED0D9208E /* PairingFailedView.swift */,
+				5706767B5E53C903F74E62E7 /* PairingPendingView.swift */,
+				281C46F8FC01A74E2D14C3AC /* PairingView.swift */,
+				5BC4FA06E43C2E7DFC443C58 /* QRScannerView.swift */,
 			);
 			path = Pairing;
 			sourceTree = "<group>";
 		};
-		A4000043 /* Chat */ = {
+		781364EDF72F7A6E1CFF0B28 /* Location */ = {
 			isa = PBXGroup;
 			children = (
-				A2000060 /* MainView.swift */,
-				A2000061 /* ChatThreadView.swift */,
-				A2000062 /* MessageBubble.swift */,
-				A2000063 /* SimpleChatView.swift */,
-				A2000064 /* TabbedChatView.swift */,
-			);
-			path = Chat;
-			sourceTree = "<group>";
-		};
-		A4000044 /* Location */ = {
-			isa = PBXGroup;
-			children = (
-				A2000070 /* LocationShareSheet.swift */,
+				505D5F5D0A48973C7E54AF7B /* LocationShareSheet.swift */,
 			);
 			path = Location;
 			sourceTree = "<group>";
 		};
-		A4000045 /* Settings */ = {
+		8337DBBC426D9D2679A894CA /* Tabs */ = {
 			isa = PBXGroup;
 			children = (
-				A2000080 /* SettingsView.swift */,
+				2591EE2F1C5ECAA2B24C6AE3 /* CalendarView.swift */,
+				791AD2623A9A6441C25A86F5 /* EmailView.swift */,
+				D26180A04E76D2EDACA1C07B /* TasksView.swift */,
+				12E83D64B1F948814DCA2D7C /* TradingView.swift */,
 			);
-			path = Settings;
+			path = Tabs;
+			sourceTree = "<group>";
+		};
+		96BFE435E033BF372A0C0343 = {
+			isa = PBXGroup;
+			children = (
+				12DB252CFA533C014E267ABD /* BARTApp */,
+				A0E9BC9D5C39B19AE126F119 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A0E9BC9D5C39B19AE126F119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				E0872111D737E5EF8B02E9F3 /* BARTApp.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A0F000784B2C7948BFB4976B /* Chat */ = {
+			isa = PBXGroup;
+			children = (
+				BE2FEFAC12A5758E7A33DB1B /* ChatThreadView.swift */,
+				9221811736B64351F8395743 /* ChatThreadView.swift.backup */,
+				BA5D53E294B78C15D528AB54 /* MainView.swift */,
+				CFDFDFD48C3F9C6C5027B8C3 /* MessageBubble.swift */,
+				FA39AF0AEE1FA1091B724CAE /* SimpleChatView.swift */,
+				4FA7324E55AB9C09E8D6E5EB /* TabbedChatView.swift */,
+			);
+			path = Chat;
+			sourceTree = "<group>";
+		};
+		E2D06E1DC1AEEBB0F0DE6EC9 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				4BB2FFDAF68FDFCFFF8B848F /* ConnectionStatusView.swift */,
+				99073DF230FCDCE96A38338E /* GlassBackground.swift */,
+				ED0293F2A79452D546AE5084 /* InteractiveComponents.swift */,
+				E595D3123880F6F8BA6E8D5A /* ResolvedComponentViews.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A5000001 /* BARTApp */ = {
+		6FE0D05A34E99912967F592D /* BARTApp */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A6000001 /* Build configuration list for PBXNativeTarget "BARTApp" */;
+			buildConfigurationList = B945086107145764BF6E8930 /* Build configuration list for PBXNativeTarget "BARTApp" */;
 			buildPhases = (
-				A3000002 /* Sources */,
-				A3000001 /* Frameworks */,
-				A3000003 /* Resources */,
+				D376BBCA004A48FB481D66CC /* Sources */,
+				8E0B322CC3E9DB7C79C1438A /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			name = BARTApp;
+			packageProductDependencies = (
+			);
 			productName = BARTApp;
-			productReference = A2000000 /* BARTApp.app */;
+			productReference = E0872111D737E5EF8B02E9F3 /* BARTApp.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		A7000001 /* Project object */ = {
+		4389B6B61BE5FB3D32741210 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1500;
-				LastUpgradeCheck = 2610;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1630;
 				TargetAttributes = {
-					A5000001 = {
-						CreatedOnToolsVersion = 15.0;
+					6FE0D05A34E99912967F592D = {
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = A6000002 /* Build configuration list for PBXProject "BARTApp" */;
+			buildConfigurationList = 3A0C7E56C88E49577E8255A4 /* Build configuration list for PBXProject "BARTApp" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 			);
-			mainGroup = A4000000;
-			productRefGroup = A4000002 /* Products */;
+			mainGroup = 96BFE435E033BF372A0C0343;
+			minimizedProjectReferenceProxies = 1;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A5000001 /* BARTApp */,
+				6FE0D05A34E99912967F592D /* BARTApp */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		A3000003 /* Resources */ = {
+		8E0B322CC3E9DB7C79C1438A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000003 /* Assets.xcassets in Resources */,
+				C3489348DA32CD60E6DCDBA2 /* Assets.xcassets in Resources */,
+				9BE6275BD2DDA6AF6FAFAC35 /* ChatThreadView.swift.backup in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		A3000002 /* Sources */ = {
+		D376BBCA004A48FB481D66CC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000001 /* BARTApp.swift in Sources */,
-				A1000002 /* RootView.swift in Sources */,
-				A1000010 /* DeviceIdentity.swift in Sources */,
-				A1000011 /* Conversation.swift in Sources */,
-				A1000012 /* Message.swift in Sources */,
-				A1000013 /* SubAgentInfo.swift in Sources */,
-				A1000014 /* LocationShare.swift in Sources */,
-				A1000015 /* GatewayTypes.swift in Sources */,
-				A1000020 /* GatewayConnection.swift in Sources */,
-				A1000021 /* LocationManager.swift in Sources */,
-				A1000030 /* AnyCodable.swift in Sources */,
-				A1000031 /* KeychainHelper.swift in Sources */,
-				A1000040 /* GlassBackground.swift in Sources */,
-				A1000041 /* ConnectionStatusView.swift in Sources */,
-				A1000050 /* PairingView.swift in Sources */,
-				A1000051 /* PairingPendingView.swift in Sources */,
-				A1000052 /* PairingFailedView.swift in Sources */,
-				A1000060 /* MainView.swift in Sources */,
-				A1000061 /* ChatThreadView.swift in Sources */,
-				A1000062 /* MessageBubble.swift in Sources */,
-				A1000063 /* SimpleChatView.swift in Sources */,
-				A1000064 /* TabbedChatView.swift in Sources */,
-				A1000070 /* LocationShareSheet.swift in Sources */,
-				A1000080 /* SettingsView.swift in Sources */,
-				A1000090 /* Configuration.swift in Sources */,
-				A1000100 /* QRPairingPayload.swift in Sources */,
-				A1000101 /* QRScannerView.swift in Sources */,
-				A24112952F2F334F005E4DC7 /* NotificationManager.swift in Sources */,
-				A1000102 /* ManualPairingView.swift in Sources */,
-				A1000200 /* InteractiveComponent.swift in Sources */,
-				A1000201 /* ContentParser.swift in Sources */,
-				A1000202 /* InteractiveComponents.swift in Sources */,
-				A1000203 /* ContentResolver.swift in Sources */,
-				A1000204 /* ResolvedComponentViews.swift in Sources */,
-				A1000205 /* AppDelegate.swift in Sources */,
-				A1000206 /* APNsManager.swift in Sources */,
-				A1000208 /* DeviceAuthManager.swift in Sources */,
-				A1000209 /* CryptoManager.swift in Sources */,
+				BE6A34A32F15675C23B5723F /* APNsManager.swift in Sources */,
+				F67B2D700513C90E807D1A2E /* AnyCodable.swift in Sources */,
+				0454F9CDC3E57D51A3C94F62 /* AppDelegate.swift in Sources */,
+				E660CFDD8FDDC63FD0869EFD /* BARTApp.swift in Sources */,
+				ADE102F00936DA7DC971DD96 /* CalendarView.swift in Sources */,
+				F3C7CC9F4CBD76DCDD5A356B /* ChatThreadView.swift in Sources */,
+				4BDFF13518392DF59EEE0675 /* Configuration.swift in Sources */,
+				43137C69B0918C8468F46B33 /* ConnectionStatusView.swift in Sources */,
+				DD53C6F5BB5F2326092EEB54 /* ContentParser.swift in Sources */,
+				65DDEB5ADAB0F0D48DF5E2F2 /* ContentResolver.swift in Sources */,
+				4D740B85864C6CC422506B56 /* Conversation.swift in Sources */,
+				A80E38C714F6DBFAA076C5E5 /* CryptoManager.swift in Sources */,
+				B9B756407D28139C4BC04DB6 /* DeviceAuthManager.swift in Sources */,
+				FA110C3207387716FFF1056F /* DeviceIdentity.swift in Sources */,
+				4612260907782454E577D45D /* EmailView.swift in Sources */,
+				6B72AE0E8015F07ECACD74F1 /* GatewayConnection.swift in Sources */,
+				BABBAED126461E652B34006C /* GatewayTypes.swift in Sources */,
+				8EA3A7A7297D67EC59A1EC37 /* GlassBackground.swift in Sources */,
+				D7D62644BD54C99917ABEC5E /* InteractiveComponent.swift in Sources */,
+				A5747EBA12FB071FD69D19D7 /* InteractiveComponents.swift in Sources */,
+				6C8ADE1ED1734EBF23EC210D /* KeychainHelper.swift in Sources */,
+				456A974DC2519C88C4FBAE9C /* LocationManager.swift in Sources */,
+				6CAE5B3FE73B69000DE5989E /* LocationShare.swift in Sources */,
+				692593503F1314CB85D77B29 /* LocationShareSheet.swift in Sources */,
+				560F6E82A62CBA05A9140339 /* MainTabView.swift in Sources */,
+				C97F555DBF093AC74B6A6FBD /* MainView.swift in Sources */,
+				6B416830EE26731E8C2389F5 /* ManualPairingView.swift in Sources */,
+				C31657CFC28A211F828F577F /* Message.swift in Sources */,
+				9570E836EAD9CDACA612992F /* MessageBubble.swift in Sources */,
+				5BED05496E5D935BCD9D982B /* NotificationManager.swift in Sources */,
+				000581EB9F52DD178D6BE360 /* PairingFailedView.swift in Sources */,
+				EB16AD28ADB228F862D038F3 /* PairingPendingView.swift in Sources */,
+				BDDAA0E91931AB7535AD3EA6 /* PairingView.swift in Sources */,
+				FC3B7A9C617BA059E5D22D2D /* QRPairingPayload.swift in Sources */,
+				0CC65ECE250A080CB1CD579A /* QRScannerView.swift in Sources */,
+				D6ACF3544CF50CE8E8DA2D1E /* ResolvedComponentViews.swift in Sources */,
+				164A9C80B55C1B0A3C7232B7 /* RootView.swift in Sources */,
+				0A6AE801D0F2D876E8B45B1F /* SettingsView.swift in Sources */,
+				9B5355AB51DFBD9A437019E2 /* SimpleChatView.swift in Sources */,
+				9682A7513463630EA27BAC7D /* SubAgentInfo.swift in Sources */,
+				6FEE4835FF26B0BD4E94C730 /* TabbedChatView.swift in Sources */,
+				C6A72B2572EFBF9E78933C12 /* TasksView.swift in Sources */,
+				1E53924B2B34610960BB087F /* TradingView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A8000001 /* Debug */ = {
+		04B748AFFE99C02C3D1DEE51 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
-				CLANG_ENABLE_MODULES = YES;
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = RX7HEZRNW6;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
-				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-			};
-			name = Debug;
-		};
-		A8000002 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -453,11 +410,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = RX7HEZRNW6;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -465,105 +421,143 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				VALIDATE_PRODUCT = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
-		A8000003 /* Debug */ = {
+		300C87835E0952C72CC99519 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = BARTApp/BARTApp.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				DEVELOPMENT_TEAM = RX7HEZRNW6;
 				INFOPLIST_FILE = BARTApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Claw Talk";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.laert.bartapp;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openclaw.bartapp;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		6847E698DD21A51E33561DC2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		C1E6AC7B4D49D553A1768998 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = RX7HEZRNW6;
+				INFOPLIST_FILE = BARTApp/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openclaw.bartapp;
+				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		A8000004 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = BARTApp/BARTApp.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = BARTApp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Claw Talk";
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.laert.bartapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A6000001 /* Build configuration list for PBXNativeTarget "BARTApp" */ = {
+		3A0C7E56C88E49577E8255A4 /* Build configuration list for PBXProject "BARTApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A8000003 /* Debug */,
-				A8000004 /* Release */,
+				6847E698DD21A51E33561DC2 /* Debug */,
+				04B748AFFE99C02C3D1DEE51 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
-		A6000002 /* Build configuration list for PBXProject "BARTApp" */ = {
+		B945086107145764BF6E8930 /* Build configuration list for PBXNativeTarget "BARTApp" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A8000001 /* Debug */,
-				A8000002 /* Release */,
+				C1E6AC7B4D49D553A1768998 /* Debug */,
+				300C87835E0952C72CC99519 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = A7000001 /* Project object */;
+	rootObject = 4389B6B61BE5FB3D32741210 /* Project object */;
 }

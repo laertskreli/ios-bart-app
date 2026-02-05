@@ -367,8 +367,8 @@ struct MessageBubble: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(bubbleBackground)
-        .foregroundStyle(message.role == .user ? .white : .primary)
+        .background(message.role == .user ? Color(red: 0.0, green: 0.48, blue: 1.0) : Color(red: 0.17, green: 0.17, blue: 0.17), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .foregroundColor(message.role == .user ? .white : .primary)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .contextMenu {
             Button {
@@ -390,11 +390,6 @@ struct MessageBubble: View {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
             }
-        } preview: {
-            // Preview shown during long press
-            Text(message.content.prefix(200) + (message.content.count > 200 ? "..." : ""))
-                .padding()
-                .frame(maxWidth: 300)
         }
         .onTapGesture { } // Empty tap to not interfere
         .overlay(alignment: .topTrailing) {
@@ -642,14 +637,18 @@ extension MessageBubble {
         onComponentAction?(componentId, action)
     }
 
+    // Explicit colors to avoid system color rendering issues
+    private static let userBubbleColor = Color(red: 0.0, green: 0.48, blue: 1.0) // iOS blue
+    private static let assistantBubbleColor = Color(white: 0.17) // Dark gray
+    
     @ViewBuilder
     private var bubbleBackground: some View {
         if message.role == .user {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color.accentColor)
+                .fill(Self.userBubbleColor)
         } else {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(.secondarySystemBackground))
+                .fill(Self.assistantBubbleColor)
         }
     }
 
@@ -720,7 +719,7 @@ struct ToolCallBadge: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Capsule().fill(Color(.secondarySystemBackground)))
+        .background(Capsule().fill(Color(white: 0.17)))
     }
 
     private func formatToolName(_ name: String) -> String {

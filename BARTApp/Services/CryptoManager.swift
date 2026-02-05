@@ -4,7 +4,7 @@ import CryptoKit
 /// Encryption utilities for secure payload encryption using Curve25519 key agreement
 /// and AES-GCM authenticated encryption.
 class CryptoManager {
-    static let shared = CryptoManager()
+    nonisolated(unsafe) static let shared = CryptoManager()
 
     private init() {}
 

@@ -9,12 +9,8 @@ enum AppConfig {
             return envHost
         }
 
-        #if targetEnvironment(simulator)
-        return "localhost"
-        #else
-        // Use Tailscale Serve URL - proxies to Mac Mini where OpenClaw gateway runs
+        // Always use Tailscale hostname - works from simulator and device
         return "treals-mac-mini.tail3eabbc.ts.net"
-        #endif
     }()
 
     /// The port for OpenClaw Gateway (443 for Tailscale Serve HTTPS)

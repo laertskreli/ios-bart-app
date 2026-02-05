@@ -6,7 +6,7 @@ import Security
 /// Generates and stores a device secret on first launch, then uses it to create
 /// authentication headers with timestamp-based HMAC signatures.
 class DeviceAuthManager {
-    static let shared = DeviceAuthManager()
+    nonisolated(unsafe) static let shared = DeviceAuthManager()
 
     private let keychainKey = "com.bart.device-secret"
     private let deviceIdKey = "com.bart.device-id"

@@ -5,7 +5,7 @@ struct ContentParser {
     // MARK: - Cache
 
     /// Cache for parsed content to avoid re-parsing on every view render
-    private static var cache = ParsedContentCache()
+    private nonisolated(unsafe) static var cache = ParsedContentCache()
 
     private class ParsedContentCache {
         private var storage: [Int: (content: String, blocks: [ParsedContentBlock])] = [:]

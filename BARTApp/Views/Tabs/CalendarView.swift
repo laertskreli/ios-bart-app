@@ -412,6 +412,7 @@ class CalendarViewModel: ObservableObject {
     }
     
     func refreshEvents() async {
+        await fetchRealCalendarEvents()
     }
     
     /// Connect to gateway for real calendar data

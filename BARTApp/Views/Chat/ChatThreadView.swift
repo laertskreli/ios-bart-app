@@ -234,32 +234,6 @@ struct ChatThreadView: View {
             .background(Color.black)
             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showInputBar)
         }
-        .overlay(alignment: .bottomTrailing) {
-            // Floating compose button when input bar is hidden
-            if !showInputBar {
-                Button {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        showInputBar = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        isInputFocused = true
-                    }
-                } label: {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .background(
-                            Circle()
-                                .fill(Color(red: 0.0, green: 0.48, blue: 1.0))
-                                .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
-                        )
-                }
-                .padding(.trailing, 20)
-                .padding(.bottom, 20)
-                .transition(.scale.combined(with: .opacity))
-            }
-        }
         .onReceive(replyNotification) { notification in
             if let messageId = notification.userInfo?["messageId"] as? String,
                let content = notification.userInfo?["content"] as? String,

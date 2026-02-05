@@ -1160,6 +1160,63 @@ struct CurrentTimeIndicator: View {
 
 // MARK: - Day Calendar View
 
+// MARK: - Event Layout Helper
+
+struct EventLayoutInfo: Identifiable {
+    var id: String { event.id }
+    let event: CalendarEvent
+    let column: Int
+    let totalColumns: Int
+}
+
+func calculateEventLayout(events: [CalendarEvent]) -> [EventLayoutInfo] {
+    guard !events.isEmpty else { return [] }
+    
+    let sorted = events.sorted { e1, e2 in
+        if e1.startTime == e2.startTime {
+            return e1.duration > e2.duration
+        }
+        return e1.startTime < e2.startTime
+    }
+    
+    var columnEndTimes: [Date] = []
+    var assignments: [(event: CalendarEvent, column: Int)] = []
+    
+    for event in sorted {
+        var assignedColumn = -1
+        for (idx, endTime) in columnEndTimes.enumerated() {
+            if event.startTime >= endTime {
+                assignedColumn = idx
+                columnEndTimes[idx] = event.endTime
+                break
+            }
+        }
+        
+        if assignedColumn == -1 {
+            assignedColumn = columnEndTimes.count
+            columnEndTimes.append(event.endTime)
+        }
+        
+        assignments.append((event, assignedColumn))
+    }
+    
+    var result: [EventLayoutInfo] = []
+    
+    for (event, column) in assignments {
+        var maxCols = column + 1
+        for (otherEvent, otherCol) in assignments {
+            if event.startTime < otherEvent.endTime && otherEvent.startTime < event.endTime {
+                maxCols = max(maxCols, otherCol + 1)
+            }
+        }
+        result.append(EventLayoutInfo(event: event, column: column, totalColumns: maxCols))
+    }
+    
+    return result
+}
+
+// MARK: - Day Calendar View
+
 struct DayCalendarView: View {
     let date: Date
     let events: [CalendarEvent]
@@ -1167,34 +1224,39 @@ struct DayCalendarView: View {
 
     private let calendar = Calendar.current
     private let hourHeight: CGFloat = 60
+    private let leftMargin: CGFloat = 66
+    private let rightPadding: CGFloat = 16
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: true) {
             ScrollViewReader { proxy in
-                ZStack(alignment: .topLeading) {
-                    // Time grid
-                    VStack(spacing: 0) {
-                        ForEach(0..<24, id: \.self) { hour in
-                            HStack(alignment: .top, spacing: 8) {
-                                Text(hourString(hour))
-                                    .font(.caption)
-                                    .foregroundStyle(.gray)
-                                    .frame(width: 50, alignment: .trailing)
+                GeometryReader { geometry in
+                    let availableWidth = geometry.size.width - leftMargin - rightPadding
+                    let layoutInfos = calculateEventLayout(events: events)
+                    
+                    ZStack(alignment: .topLeading) {
+                        // Time grid
+                        VStack(spacing: 0) {
+                            ForEach(0..<24, id: \.self) { hour in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Text(hourString(hour))
+                                        .font(.caption)
+                                        .foregroundStyle(.gray)
+                                        .frame(width: 50, alignment: .trailing)
 
-                                VStack {
-                                    Divider()
-                                        .background(Color.white.opacity(0.2))
-                                    Spacer()
+                                    VStack {
+                                        Divider()
+                                            .background(Color.white.opacity(0.2))
+                                        Spacer()
+                                    }
                                 }
+                                .frame(height: hourHeight)
+                                .id(hour)
                             }
-                            .frame(height: hourHeight)
-                            .id(hour)
                         }
-                    }
 
-                    // Current time indicator
-                    if calendar.isDateInToday(date) {
-                        GeometryReader { _ in
+                        // Current time indicator
+                        if calendar.isDateInToday(date) {
                             let now = Date()
                             let minutes = CGFloat(calendar.component(.hour, from: now) * 60 +
                                                  calendar.component(.minute, from: now))
@@ -1217,20 +1279,24 @@ struct DayCalendarView: View {
                             }
                             .offset(y: offset - 4)
                         }
-                    }
 
-                    // Events
-                    ForEach(events) { event in
-                        DayEventCard(
-                            event: event,
-                            hourHeight: hourHeight,
-                            onTap: { onEventTap(event) }
-                        )
+                        // Events with overlap handling
+                        ForEach(layoutInfos) { info in
+                            DayEventCard(
+                                event: info.event,
+                                column: info.column,
+                                totalColumns: info.totalColumns,
+                                availableWidth: availableWidth,
+                                leftMargin: leftMargin,
+                                hourHeight: hourHeight,
+                                onTap: { onEventTap(info.event) }
+                            )
+                        }
                     }
+                    .padding()
                 }
-                .padding()
+                .frame(height: CGFloat(24) * hourHeight + 40)
                 .onAppear {
-                    // Scroll to current time or first event
                     let targetHour: Int
                     if let firstEvent = events.first {
                         targetHour = max(0, calendar.component(.hour, from: firstEvent.startTime) - 1)
@@ -1263,11 +1329,14 @@ struct DayCalendarView: View {
 
 struct DayEventCard: View {
     let event: CalendarEvent
+    let column: Int
+    let totalColumns: Int
+    let availableWidth: CGFloat
+    let leftMargin: CGFloat
     let hourHeight: CGFloat
     let onTap: () -> Void
 
     private let calendar = Calendar.current
-    private let leftMargin: CGFloat = 66
 
     var body: some View {
         let startMinutes = CGFloat(calendar.component(.hour, from: event.startTime) * 60 +
@@ -1276,10 +1345,12 @@ struct DayEventCard: View {
 
         let topOffset = (startMinutes / 60) * hourHeight
         let height = max((durationMinutes / 60) * hourHeight, 44)
+        
+        let columnWidth = availableWidth / CGFloat(totalColumns)
+        let horizontalOffset = leftMargin + CGFloat(column) * columnWidth
 
         Button(action: onTap) {
-            HStack(spacing: 12) {
-                // Color indicator
+            HStack(spacing: 8) {
                 RoundedRectangle(cornerRadius: 2)
                     .fill(event.source.color)
                     .frame(width: 4)
@@ -1310,26 +1381,21 @@ struct DayEventCard: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
             }
-            .padding(12)
-            .frame(height: height, alignment: .top)
+            .padding(8)
+            .frame(width: columnWidth - 4, height: height, alignment: .topLeading)
             .background(event.source.color.opacity(0.15))
-            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 8)
                     .strokeBorder(event.source.color.opacity(0.3), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
-        .padding(.leading, leftMargin)
-        .padding(.trailing, 16)
-        .offset(y: topOffset)
+        .offset(x: horizontalOffset, y: topOffset)
     }
 }
-
-// MARK: - Event List View
-
 struct EventListView: View {
     let date: Date
     let events: [CalendarEvent]

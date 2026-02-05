@@ -117,7 +117,7 @@ struct ChatThreadView: View {
                     }
                 
                 .defaultScrollAnchor(.bottom)
-                .scrollDismissesKeyboard(.never)
+                .scrollDismissesKeyboard(.interactively)
                 .scrollIndicators(.hidden)
                 .scrollContentBackground(.hidden)
                 .background(Color.black)
@@ -130,12 +130,6 @@ struct ChatThreadView: View {
                     }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         isInputFocused = true
-                    }
-                }
-                .onTapGesture(count: 1) {
-                    // Single tap dismisses keyboard if shown
-                    if isInputFocused {
-                        isInputFocused = false
                     }
                 }
                 .onAppear {

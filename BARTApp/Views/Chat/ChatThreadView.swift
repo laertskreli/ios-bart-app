@@ -35,7 +35,7 @@ struct ChatThreadView: View {
     @State private var keyboardHeight: CGFloat = 0
 
     // Reply state
-    @State private var showInputBar = true
+    @State private var showInputBar = false
     @State private var hideToolbar = false
     @State private var replyToMessageId: String?
     @State private var replyToContent: String?
@@ -123,9 +123,13 @@ struct ChatThreadView: View {
                 .background(Color.black)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
-                    // Double-tap to toggle toolbar visibility
+                    // Double-tap enters focus mode: hide nav, show keyboard
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        hideToolbar.toggle()
+                        hideToolbar = true
+                        showInputBar = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        isInputFocused = true
                     }
                 }
                 .onTapGesture(count: 1) {
@@ -186,9 +190,15 @@ struct ChatThreadView: View {
                 }
                 .onChange(of: isInputFocused) { _, focused in
                     if focused {
-                        // Delay to let keyboard animation start
+                        // Entering focus mode - scroll to bottom
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             scrollToBottom(animated: true)
+                        }
+                    } else {
+                        // Exiting focus mode - show nav, hide input
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            hideToolbar = false
+                            showInputBar = false
                         }
                     }
                 }

@@ -56,5 +56,5 @@ struct RootView: View {
 
 #Preview {
     RootView()
-        .environmentObject(GatewayConnection(gatewayHost: "localhost"))
+        // gateway inherited from parent
 }

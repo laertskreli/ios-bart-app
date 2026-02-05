@@ -274,6 +274,7 @@ class CalendarViewModel: ObservableObject {
     
     /// Check incoming messages for calendar data
     private func checkForCalendarData(in conversations: [String: Conversation]) {
+        print("📅 checkForCalendarData: \(conversations.count) conversations")
         for (_, conversation) in conversations {
             for message in conversation.messages.reversed() {
                 // Look for calendar data marker
@@ -288,6 +289,7 @@ class CalendarViewModel: ObservableObject {
     
     /// Parse calendar data from agent response
     private func parseCalendarData(from content: String) {
+        print("📅 parseCalendarData called with content length: \(content.count)")
         // Extract JSON between [CALENDAR_DATA] and end of JSON block
         guard let startRange = content.range(of: "[CALENDAR_DATA]") else { return }
         let jsonStart = content[startRange.upperBound...]
@@ -317,6 +319,7 @@ class CalendarViewModel: ObservableObject {
                let eventsArray = json["events"] as? [[String: Any]] {
                 
                 let parsedEvents = eventsArray.compactMap { parseEvent($0) }
+                print("📅 Parsed \(parsedEvents.count) events from \(eventsArray.count) raw events")
                 
                 Task { @MainActor in
                     // Merge with existing events, replacing Google ones
@@ -413,6 +416,7 @@ class CalendarViewModel: ObservableObject {
     
     /// Connect to gateway for real calendar data
     func setGateway(_ gateway: GatewayConnection) {
+        print("📅 setGateway called")
         self.gatewayConnection = gateway
         // Subscribe to conversations
         gateway.$conversations

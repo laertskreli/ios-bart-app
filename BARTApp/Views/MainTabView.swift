@@ -68,5 +68,5 @@ struct MainTabView: View {
 
 #Preview {
     MainTabView()
-        .environmentObject(GatewayConnection(gatewayHost: "localhost"))
+        // gateway inherited from parent
 }

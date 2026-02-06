@@ -168,3 +168,32 @@ private struct ScaleButtonStyle: ButtonStyle {
         .padding()
     }
 }
+
+// MARK: - Simple Icon Button View (for navigation links)
+
+/// A simple icon view with liquid glass styling for use in NavigationLinks
+struct LiquidGlassButton: View {
+    let icon: String
+    var size: CGFloat = 32
+    var iconSize: CGFloat = 16
+    
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: iconSize))
+            .foregroundStyle(.secondary)
+            .frame(width: size, height: size)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+    }
+}

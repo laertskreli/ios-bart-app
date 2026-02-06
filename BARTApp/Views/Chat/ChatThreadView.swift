@@ -16,32 +16,27 @@ struct ChatThreadView: View {
     @State private var isAtBottom = true
     @Namespace private var bottomID
 
-    // Current session (switchable)
     @State private var currentSessionKey: String = ""
     @State private var currentTitle: String = ""
 
-    // Attachment state
     @State private var selectedPhotos: [PhotosPickerItem] = []
     @State private var attachments: [AttachmentItem] = []
     @State private var showFilePicker = false
 
-    // Connection toast
     @State private var showConnectionToast = false
 
-    // Send animation
     @State private var sendAnimationTrigger = false
     @State private var sendRippleScale: CGFloat = 1.0
     @State private var sendRippleOpacity: Double = 0.0
     @State private var keyboardHeight: CGFloat = 0
+    @State private var scrollOffset: CGFloat = 0
 
-    // Reply state
     @State private var showInputBar = false
     @State private var hideToolbar = false
     @State private var replyToMessageId: String?
     @State private var replyToContent: String?
     @State private var replyToRole: String?
 
-    // Keyboard notification
     private let replyNotification = NotificationCenter.default.publisher(for: .replyToMessage)
     private let keyboardWillShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
     private let keyboardWillHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
@@ -58,13 +53,10 @@ struct ChatThreadView: View {
         gateway.isBotTyping[currentSessionKey] ?? false
     }
 
-    /// Show typing indicator when bot is typing OR when we have an actively streaming message
     private var showTypingIndicator: Bool {
-        // Show if explicitly marked as typing
         if gateway.isBotTyping[currentSessionKey] == true {
             return true
         }
-        // Also show if there's a streaming message (active response)
         if let lastMessage = messages.last, lastMessage.role == .assistant && lastMessage.isStreaming {
             return true
         }
@@ -73,12 +65,25 @@ struct ChatThreadView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Liquid glass background with subtle animation
+            LiquidGlassStaticBackground(
+                colors: [.purple.opacity(0.2), .blue.opacity(0.15), .indigo.opacity(0.2)]
+            )
+            
             GeometryReader { geometry in
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
-                            // Spacer pushes content to bottom
+                            // Scroll offset tracker for header blur
+                            GeometryReader { geo in
+                                Color.clear
+                                    .preference(
+                                        key: ScrollOffsetPreferenceKey.self,
+                                        value: -geo.frame(in: .named("chatScroll")).minY
+                                    )
+                            }
+                            .frame(height: 0)
+                            
                             Spacer(minLength: 0)
                             
                             LazyVStack(spacing: 12) {
@@ -87,25 +92,26 @@ struct ChatThreadView: View {
                                         .frame(maxHeight: 400)
                                         
                                 } else {
-                                    // Connection status inline message
                                     if showConnectionToast {
                                         ConnectionStatusMessage()
                                             .id("connection-status")
                                     }
 
-                                    // Messages in natural order (oldest first)
                                     ForEach(messages) { message in
-                                        MessageBubble(message: message, onComponentAction: handleComponentAction)
+                                        MessageBubble(message: message, onComponentAction: handleComponentAction, onDoubleTap: { enterFocusMode() })
                                             .id(message.id)
+                                            .transition(.asymmetric(
+                                                insertion: .scale(scale: 0.95).combined(with: .opacity),
+                                                removal: .opacity
+                                            ))
                                     }
 
-                                    // Typing indicator at bottom (after messages)
                                     if showTypingIndicator {
                                         TypingIndicatorBubble()
                                             .id("typing-indicator")
+                                            .transition(.scale(scale: 0.9).combined(with: .opacity))
                                     }
 
-                                    // Bottom anchor for scroll-to-bottom
                                     Color.clear
                                         .frame(height: 1)
                                         .id("bottom")
@@ -115,30 +121,25 @@ struct ChatThreadView: View {
                         }
                         .frame(minHeight: geometry.size.height)
                     }
-                
+                    .coordinateSpace(name: "chatScroll")
+                    .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                        scrollOffset = value
+                    }
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.interactively)
                 .scrollIndicators(.hidden)
                 .scrollContentBackground(.hidden)
-                .background(Color.black)
+                .background(Color.clear)
                 .contentShape(Rectangle())
-                .onTapGesture(count: 2) {
-                    // Double-tap enters focus mode: hide nav, show keyboard
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        hideToolbar = true
-                        showInputBar = true
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        isInputFocused = true
-                    }
+                .onTapGesture(count: 2) { enterFocusMode() }
+                .onTapGesture(count: 1) {
+                    isInputFocused = false
                 }
                 .onAppear {
                     scrollProxy = proxy
-                    // Always scroll to bottom on appear with a slight delay for layout
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
                         scrollToBottom(animated: false)
                     }
-                    // And again after a longer delay in case messages load async
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         if !messages.isEmpty {
                             scrollToBottom(animated: false)
@@ -146,51 +147,51 @@ struct ChatThreadView: View {
                     }
                 }
                 .onReceive(keyboardWillShow) { _ in
-                    // Scroll to bottom whenever keyboard appears
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                         scrollToBottom(animated: true)
                     }
                 }
                 .onReceive(keyboardWillHide) { _ in
-                    // Collapse input bar when keyboard hides (after a small delay to allow for keyboard switching)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         if !isInputFocused {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                                 showInputBar = false
                             }
                         }
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .enterChatFocusMode)) { _ in
+                    enterFocusMode()
+                }
+
                 .onChange(of: messages.count) { oldCount, newCount in
-                    // Scroll to bottom when messages change
                     if newCount > oldCount {
-                        // New message added - animate
-                        scrollToBottom(animated: true)
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                            scrollToBottom(animated: true)
+                        }
                     } else if oldCount == 0 && newCount > 0 {
-                        // Initial load - no animation, just snap
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             scrollToBottom(animated: false)
                         }
                     }
                 }
                 .onChange(of: messages.last?.content) { _, _ in
-                    // Scroll during streaming updates
                     scrollToBottom(animated: false)
                 }
                 .onChange(of: showTypingIndicator) { _, isTyping in
                     if isTyping {
-                        scrollToBottom(animated: true)
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                            scrollToBottom(animated: true)
+                        }
                     }
                 }
                 .onChange(of: isInputFocused) { _, focused in
                     if focused {
-                        // Entering focus mode - scroll to bottom
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             scrollToBottom(animated: true)
                         }
                     } else {
-                        // Exiting focus mode - show nav, hide input
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             hideToolbar = false
                             showInputBar = false
                         }
@@ -202,14 +203,12 @@ struct ChatThreadView: View {
                     }
                 }
                 .onChange(of: gateway.connectionState) { oldState, newState in
-                    // Show toast when transitioning to connected
                     if case .connected = newState, !oldState.isConnected {
-                        withAnimation(.easeOut(duration: 0.3)) {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             showConnectionToast = true
                         }
-                        // Auto-hide after 12 seconds
                         DispatchQueue.main.asyncAfter(deadline: .now() + 12) {
-                            withAnimation(.easeOut(duration: 0.3)) {
+                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                                 showConnectionToast = false
                             }
                         }
@@ -221,11 +220,9 @@ struct ChatThreadView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 if showInputBar {
-                    // Reply preview bar
                     if replyToMessageId != nil {
                         replyPreviewBar
                     }
-                    // Attachment preview bar
                     if !attachments.isEmpty {
                         attachmentPreviewBar
                     }
@@ -233,14 +230,14 @@ struct ChatThreadView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .background(Color.black)
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: showInputBar)
+            .background(.ultraThinMaterial)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: showInputBar)
         }
         .onReceive(replyNotification) { notification in
             if let messageId = notification.userInfo?["messageId"] as? String,
                let content = notification.userInfo?["content"] as? String,
                let role = notification.userInfo?["role"] as? String {
-                withAnimation(.easeOut(duration: 0.2)) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     replyToMessageId = messageId
                     replyToContent = content
                     replyToRole = role
@@ -250,16 +247,14 @@ struct ChatThreadView: View {
         }
         
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.black, for: .navigationBar)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar(hideToolbar ? .hidden : .visible, for: .navigationBar)
         .toolbar {
-            // Left: Connection status indicator (liquid glass circle with dot)
             ToolbarItem(placement: .topBarLeading) {
                 ConnectionIndicator(state: gateway.connectionState)
             }
 
-            // Center: Session picker (no icon, just short name)
             ToolbarItem(placement: .principal) {
                 SessionPickerButton(
                     currentSessionKey: currentSessionKey,
@@ -270,23 +265,11 @@ struct ChatThreadView: View {
                 )
             }
 
-            // Right: Settings button
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink {
                     SettingsView()
                 } label: {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 32, height: 32)
-                        .background(
-                            Circle()
-                                .fill(Color.black)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
-                        )
+                    LiquidGlassButton(icon: "gearshape.fill")
                 }
             }
         }
@@ -297,7 +280,6 @@ struct ChatThreadView: View {
             DocumentPickerView(attachments: $attachments)
         }
         .onAppear {
-            // Initialize current session from initial values
             if currentSessionKey.isEmpty {
                 currentSessionKey = initialSessionKey
                 currentTitle = initialTitle
@@ -306,50 +288,45 @@ struct ChatThreadView: View {
     }
 
     private func switchToSession(_ session: SessionInfo) {
-        // Update current session
-        currentSessionKey = session.sessionKey
-        currentTitle = session.friendlyName
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            currentSessionKey = session.sessionKey
+            currentTitle = session.friendlyName
+        }
 
-        // Fetch history for the new session if not already loaded
         if gateway.conversations[session.sessionKey] == nil {
             gateway.fetchSessionHistory(sessionKey: session.sessionKey) { messages in
-                // History loaded, UI will update automatically
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     scrollToBottom(animated: false)
                 }
             }
         } else {
-            // Already have messages, just scroll to bottom
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 scrollToBottom(animated: false)
             }
         }
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Spacer()
+        LiquidGlassCard(blur: .thinMaterial, cornerRadius: 24, padding: 32) {
+            VStack(spacing: 16) {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.tertiary)
 
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 48))
-                .foregroundStyle(.tertiary)
+                Text("Start a conversation")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
 
-            Text("Start a conversation")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            Text("Messages are private and encrypted")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-
-            Spacer()
+                Text("Messages are private and encrypted")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
     }
 
     private var replyPreviewBar: some View {
         HStack(spacing: 8) {
-            // Accent bar
             RoundedRectangle(cornerRadius: 1.5)
                 .fill(Color.accentColor)
                 .frame(width: 3, height: 32)
@@ -368,9 +345,8 @@ struct ChatThreadView: View {
 
             Spacer()
 
-            // Dismiss button
             Button {
-                withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                     replyToMessageId = nil
                     replyToContent = nil
                     replyToRole = nil
@@ -380,15 +356,12 @@ struct ChatThreadView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
                     .frame(width: 24, height: 24)
-                    .background(Circle().fill(Color(.tertiarySystemFill)))
+                    .background(Circle().fill(.thinMaterial))
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(
-            Rectangle()
-                .fill(Color.black)
-        )
+        .background(.ultraThinMaterial)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
@@ -397,7 +370,7 @@ struct ChatThreadView: View {
             HStack(spacing: 8) {
                 ForEach(attachments) { attachment in
                     AttachmentPreviewCell(attachment: attachment) {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             attachments.removeAll { $0.id == attachment.id }
                         }
                     }
@@ -406,20 +379,18 @@ struct ChatThreadView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .background(Color(.systemBackground))
+        .background(.ultraThinMaterial)
     }
 
     private var inputBar: some View {
         VStack(spacing: 0) {
             Divider()
-                .opacity(0.3)
+                .background(Color.white.opacity(0.1))
 
             HStack(spacing: 4) {
-                // Attach button
                 Menu {
                     Section {
                         Button {
-                            // Photo picker is handled by PhotosPicker below
                         } label: {
                             Label("Photo Library", systemImage: "photo.on.rectangle")
                         }
@@ -435,10 +406,7 @@ struct ChatThreadView: View {
                         .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color.black)
-                        )
+                        .background(.thinMaterial, in: Circle())
                         .overlay(
                             Circle()
                                 .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
@@ -446,7 +414,6 @@ struct ChatThreadView: View {
                 }
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
-                // Overlay PhotosPicker for photo selection
                 .overlay {
                     PhotosPicker(
                         selection: $selectedPhotos,
@@ -460,18 +427,15 @@ struct ChatThreadView: View {
                     .allowsHitTesting(true)
                 }
 
-                // Location button
                 Button {
                     showLocationSheet = true
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 } label: {
                     Image(systemName: "location.fill")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundStyle(.primary)
                         .frame(width: 36, height: 36)
-                        .background(
-                            Circle()
-                                .fill(Color.black)
-                        )
+                        .background(.thinMaterial, in: Circle())
                         .overlay(
                             Circle()
                                 .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
@@ -480,7 +444,6 @@ struct ChatThreadView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
 
-                // Text input area
                 HStack(spacing: 8) {
                     TextField("Message", text: $inputText, axis: .vertical)
                         .lineLimit(1...6)
@@ -490,17 +453,14 @@ struct ChatThreadView: View {
                         .padding(.leading, 4)
                         .contentShape(Rectangle())
 
-                    // Send button - 44pt touch target with iMessage-style animation
                     Button(action: triggerSendAnimation) {
                         ZStack {
-                            // Ripple effect layer
                             Circle()
                                 .fill(Color(red: 0.0, green: 0.48, blue: 1.0).opacity(0.3))
                                 .frame(width: 32, height: 32)
                                 .scaleEffect(sendRippleScale)
                                 .opacity(sendRippleOpacity)
 
-                            // Main button
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundStyle(.white)
@@ -518,15 +478,21 @@ struct ChatThreadView: View {
                 }
                 .padding(.leading, 12)
                 .padding(.trailing, 4)
-                .background(
+                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(.secondarySystemBackground))
+                        .stroke(
+                            LinearGradient(
+                                colors: [.white.opacity(0.2), .white.opacity(0.05)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 0.5
+                        )
                 )
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 6)
-            .background(Color.black)
-            
         }
     }
 
@@ -539,27 +505,23 @@ struct ChatThreadView: View {
     private func triggerSendAnimation() {
         guard canSend else { return }
 
-        // Button press animation (scale down)
-        withAnimation(.easeInOut(duration: 0.1)) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
             sendAnimationTrigger = true
         }
 
-        // Ripple effect
         sendRippleScale = 1.0
         sendRippleOpacity = 0.6
-        withAnimation(.easeOut(duration: 0.4)) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
             sendRippleScale = 2.5
             sendRippleOpacity = 0.0
         }
 
-        // Button release animation (scale back)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                 sendAnimationTrigger = false
             }
         }
 
-        // Actually send after brief animation start
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             sendMessage()
         }
@@ -571,34 +533,29 @@ struct ChatThreadView: View {
 
         guard !text.isEmpty || !currentAttachments.isEmpty else { return }
 
-        // Haptic feedback - prepare and fire
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.prepare()
         impact.impactOccurred()
 
-        // Capture reply context before clearing
         let replyContext = buildReplyContext()
 
         inputText = ""
         attachments = []
         selectedPhotos = []
 
-        // Clear reply state
-        withAnimation(.easeOut(duration: 0.2)) {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
             replyToMessageId = nil
             replyToContent = nil
             replyToRole = nil
         }
 
         Task {
-            // Send attachments first if any (with delay between each to avoid overwhelming server)
             var attachmentErrors: [String] = []
             for (index, attachment) in currentAttachments.enumerated() {
                 do {
                     try await gateway.sendAttachment(attachment, sessionKey: currentSessionKey)
-                    // Small delay between attachments to prevent rate limiting
                     if index < currentAttachments.count - 1 {
-                        try await Task.sleep(nanoseconds: 300_000_000) // 300ms
+                        try await Task.sleep(nanoseconds: 300_000_000)
                     }
                 } catch {
                     attachmentErrors.append(attachment.filename)
@@ -606,25 +563,21 @@ struct ChatThreadView: View {
                 }
             }
 
-            // Build message with reply context
             var messageToSend = text
             if let context = replyContext {
                 messageToSend = context + "\n\n" + text
             }
 
-            // Add note about failed attachments if any
             if !attachmentErrors.isEmpty {
                 let failedNote = "[Note: \(attachmentErrors.count) attachment(s) failed to send]"
                 messageToSend = messageToSend.isEmpty ? failedNote : messageToSend + "\n\n" + failedNote
             }
 
-            // Then send text if any
             if !messageToSend.isEmpty {
                 try? await gateway.sendMessage(messageToSend, sessionKey: currentSessionKey)
             }
         }
 
-        // Scroll to bottom after sending
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             scrollToBottom(animated: true)
         }
@@ -643,12 +596,10 @@ struct ChatThreadView: View {
 
     private func loadPhotos(from items: [PhotosPickerItem]) async {
         for item in items {
-            // Skip if already added
             if attachments.contains(where: { $0.pickerItemId == item.itemIdentifier }) {
                 continue
             }
 
-            // Load image data
             if let data = try? await item.loadTransferable(type: Data.self) {
                 if let uiImage = UIImage(data: data) {
                     let attachment = AttachmentItem(
@@ -660,7 +611,7 @@ struct ChatThreadView: View {
                         pickerItemId: item.itemIdentifier
                     )
                     await MainActor.run {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             attachments.append(attachment)
                         }
                     }
@@ -669,11 +620,18 @@ struct ChatThreadView: View {
         }
     }
 
+    private func enterFocusMode() {
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            showInputBar = true
+        }
+        isInputFocused = true
+    }
+
     private func scrollToBottom(animated: Bool) {
         guard let proxy = scrollProxy else { return }
 
         if animated {
-            withAnimation(.easeOut(duration: 0.2)) {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         } else {
@@ -682,11 +640,9 @@ struct ChatThreadView: View {
     }
 
     private func handleComponentAction(_ componentId: String, _ action: String) {
-        // Haptic feedback
         let impact = UIImpactFeedbackGenerator(style: .light)
         impact.impactOccurred()
 
-        // Send the action as a message to the agent
         let actionMessage = "[Component Response] \(componentId): \(action)"
 
         Task {
@@ -707,7 +663,7 @@ struct ConnectionStatusMessage: View {
     }
 }
 
-// MARK: - Connection Indicator (Tappable with Status Popup)
+// MARK: - Connection Indicator
 
 struct ConnectionIndicator: View {
     let state: ConnectionState
@@ -731,7 +687,7 @@ struct ConnectionIndicator: View {
         case .connecting, .reconnecting:
             return true
         case .connected:
-            return true  // Green pulsing when connected
+            return true
         default:
             return false
         }
@@ -740,18 +696,25 @@ struct ConnectionIndicator: View {
     var body: some View {
         Button {
             showStatusPopup = true
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             ZStack {
-                // Solid dark background (same size as settings button)
                 Circle()
-                    .fill(Color.black)
+                    .fill(.ultraThinMaterial)
                     .frame(width: 32, height: 32)
                     .overlay(
                         Circle()
-                            .stroke(Color.white.opacity(0.15), lineWidth: 0.5)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 0.5
+                            )
                     )
+                    .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
 
-                // Status dot - simple colored dot with pulsing
                 Circle()
                     .fill(color)
                     .frame(width: 10, height: 10)
@@ -777,7 +740,7 @@ struct ConnectionIndicator: View {
     }
 }
 
-// MARK: - Connection Status Popup (Simple)
+// MARK: - Connection Status Popup
 
 struct ConnectionStatusPopup: View {
     let state: ConnectionState
@@ -832,6 +795,7 @@ struct ConnectionStatusPopup: View {
         }
         .padding()
         .frame(minWidth: 180)
+        .background(.regularMaterial)
     }
 
     private func heartbeatText(_ date: Date) -> String {
@@ -886,6 +850,7 @@ struct SessionPickerButton: View {
     var body: some View {
         Button {
             showPicker = true
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
         } label: {
             HStack(spacing: 6) {
                 Text(displayName)
@@ -900,27 +865,30 @@ struct SessionPickerButton: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(Color(UIColor.systemBackground))
-                    .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
-            )
+            .background(.ultraThinMaterial, in: Capsule())
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.3), lineWidth: 0.5)
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.3), .white.opacity(0.1)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
             )
+            .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
         }
         .sheet(isPresented: $showPicker) {
             SessionPickerSheet(sessions: sessions, currentSessionKey: currentSessionKey, onSelect: { session in
                 showPicker = false
-                // Delay the session switch to let sheet dismiss first
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                     onSelect(session)
                 }
             })
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(.black)
+            .presentationBackground(.ultraThinMaterial)
         }
     }
 }
@@ -934,21 +902,16 @@ struct SessionPickerSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // Group sessions: main sessions first, then subagents nested under their parent
     private var groupedSessions: [(session: SessionInfo, isNested: Bool)] {
         var result: [(session: SessionInfo, isNested: Bool)] = []
 
-        // First pass: add non-subagent sessions
         let mainSessions = sessions.filter { !$0.isSubagent }
         let subagentSessions = sessions.filter { $0.isSubagent }
 
         for mainSession in mainSessions {
             result.append((mainSession, false))
 
-            // Find subagents that belong to this parent
-            // Subagent keys look like "agent:main:subagent:xxx" - parent would be "agent:main"
             let matchingSubagents = subagentSessions.filter { subagent in
-                // Check if subagent key starts with similar prefix as main session
                 let subagentParts = subagent.sessionKey.components(separatedBy: ":subagent:")
                 if subagentParts.count > 1 {
                     let parentPrefix = subagentParts[0]
@@ -963,7 +926,6 @@ struct SessionPickerSheet: View {
             }
         }
 
-        // Add any orphaned subagents (without matching parent)
         let addedSubagentKeys = Set(result.filter { $0.isNested }.map { $0.session.sessionKey })
         for subagent in subagentSessions where !addedSubagentKeys.contains(subagent.sessionKey) {
             result.append((subagent, true))
@@ -984,10 +946,12 @@ struct SessionPickerSheet: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(.ultraThinMaterial)
             .navigationTitle("Sessions")
             .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") {
@@ -1004,9 +968,7 @@ struct SessionPickerSheet: View {
             onSelect(session)
         } label: {
             HStack(spacing: 12) {
-                // Indent nested subagents
                 if isNested {
-                    // Connector line for visual hierarchy
                     HStack(spacing: 4) {
                         Rectangle()
                             .fill(Color.secondary.opacity(0.3))
@@ -1018,7 +980,6 @@ struct SessionPickerSheet: View {
                     }
                 }
 
-                // Channel icon with color
                 Image(systemName: session.icon)
                     .font(.system(size: isNested ? 16 : 20))
                     .foregroundStyle(colorFromName(session.colorName))
@@ -1035,7 +996,6 @@ struct SessionPickerSheet: View {
                             .fontWeight(.medium)
                             .foregroundStyle(.primary)
 
-                        // Category badge for non-agent sessions
                         if session.category != .agent && !isNested {
                             Text(session.category.displayName)
                                 .font(.caption2)
@@ -1050,7 +1010,6 @@ struct SessionPickerSheet: View {
                         }
                     }
 
-                    // Topic or model info
                     if let topic = session.topic, !topic.isEmpty {
                         Text(topic)
                             .font(.caption)
@@ -1065,7 +1024,6 @@ struct SessionPickerSheet: View {
 
                 Spacer()
 
-                // Unread count badge
                 if session.unreadCount > 0 {
                     Text("\(session.unreadCount)")
                         .font(.caption2)
@@ -1076,7 +1034,6 @@ struct SessionPickerSheet: View {
                         .background(Capsule().fill(Color.red))
                 }
 
-                // Checkmark for current session
                 if session.sessionKey == currentSessionKey {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 20))
@@ -1085,6 +1042,7 @@ struct SessionPickerSheet: View {
             }
             .padding(.vertical, 4)
         }
+        .listRowBackground(Color.clear)
     }
 
     private func colorFromName(_ name: String) -> Color {
@@ -1112,7 +1070,6 @@ struct TypingIndicatorBubble: View {
     @State private var phase: Int = 0
     @State private var timerCancellable: AnyCancellable?
 
-    // Don't autoconnect - we'll manage the timer lifecycle manually
     private let timer = Timer.publish(every: 0.4, on: .main, in: .common)
 
     var body: some View {
@@ -1124,24 +1081,31 @@ struct TypingIndicatorBubble: View {
                         .frame(width: 7, height: 7)
                         .scaleEffect(phase == index ? 1.0 : 0.6)
                         .opacity(phase == index ? 1.0 : 0.4)
-                        .animation(.easeInOut(duration: 0.3), value: phase)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: phase)
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color(.secondarySystemBackground))
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.2), .white.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
+                    )
             )
+            .shadow(color: .black.opacity(0.15), radius: 10, y: 5)
 
             Spacer(minLength: 60)
         }
         .onAppear {
-            // Start timer when view appears
             timerCancellable = timer.connect() as? AnyCancellable
         }
         .onDisappear {
-            // Cancel timer when view disappears to prevent memory leak
             timerCancellable?.cancel()
             timerCancellable = nil
         }
@@ -1198,16 +1162,15 @@ struct AttachmentPreviewCell: View {
                             .truncationMode(.middle)
                     }
                     .frame(width: 64, height: 64)
-                    .background(Color(.secondarySystemBackground))
+                    .background(.thinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
             )
 
-            // Remove button
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
@@ -1287,7 +1250,6 @@ struct DocumentPickerView: UIViewControllerRepresentable {
                     let filename = url.lastPathComponent
                     let mimeType = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
 
-                    // Create thumbnail for images
                     var thumbnail: UIImage?
                     if let image = UIImage(data: data) {
                         thumbnail = image
@@ -1302,7 +1264,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
                     )
 
                     DispatchQueue.main.async {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                             self.parent.attachments.append(attachment)
                         }
                     }
@@ -1331,5 +1293,5 @@ struct DocumentPickerView: UIViewControllerRepresentable {
         TypingIndicatorBubble()
     }
     .padding()
-    .background(Color(.systemBackground))
+    .background(Color.black)
 }

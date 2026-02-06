@@ -40,19 +40,12 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                // Dark base layer
-                Color.black.ignoresSafeArea()
-                
-                // Subtle gradient overlay for depth
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.05, green: 0.05, blue: 0.1).opacity(0.8),
-                        Color.clear
-                    ],
-                    startPoint: .top,
-                    endPoint: .center
+                // Liquid glass animated background
+                LiquidGlassBackground(
+                    primaryColor: .purple,
+                    secondaryColor: .blue,
+                    tertiaryColor: .indigo
                 )
-                .ignoresSafeArea()
                 
                 ChatThreadView(
                     initialSessionKey: displaySessionKey,
@@ -76,25 +69,7 @@ struct ChatView: View {
                     NavigationLink {
                         SettingsView()
                     } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 32, height: 32)
-                            .background(
-                                Circle()
-                                    .fill(.ultraThinMaterial)
-                            )
-                            .overlay(
-                                Circle()
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [.white.opacity(0.3), .white.opacity(0.1)],
-                                            startPoint: .topLeading,
-                                            endPoint: .bottomTrailing
-                                        ),
-                                        lineWidth: 0.5
-                                    )
-                            )
+                        LiquidGlassButton(icon: "gearshape.fill")
                     }
                 }
             }
@@ -109,13 +84,15 @@ struct ChatView: View {
             syncSession()
         }
         .onChange(of: selectedChannel) { _, newChannel in
-            switch newChannel {
-            case .telegram:
-                gateway.setChannelMode(.telegram)
-            case .signal, .direct:
-                gateway.setChannelMode(.webchat)
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                switch newChannel {
+                case .telegram:
+                    gateway.setChannelMode(.telegram)
+                case .signal, .direct:
+                    gateway.setChannelMode(.webchat)
+                }
+                syncSession()
             }
-            syncSession()
         }
     }
     
@@ -141,10 +118,7 @@ struct ChatView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(.ultraThinMaterial)
-            )
+            .background(.ultraThinMaterial, in: Capsule())
             .overlay(
                 Capsule()
                     .stroke(
@@ -156,6 +130,7 @@ struct ChatView: View {
                         lineWidth: 0.5
                     )
             )
+            .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
         }
         .sheet(isPresented: $showChannelPicker) {
             ChannelPickerSheet(
@@ -193,8 +168,10 @@ struct ChatView: View {
         }
         
         if newKey != displaySessionKey || newTitle != displayTitle {
-            displaySessionKey = newKey
-            displayTitle = newTitle
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                displaySessionKey = newKey
+                displayTitle = newTitle
+            }
         }
     }
     
@@ -273,7 +250,9 @@ struct ChannelPickerSheet: View {
     
     private func channelButton(_ channel: ChatChannel) -> some View {
         Button {
-            selectedChannel = channel
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                selectedChannel = channel
+            }
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             dismiss()
         } label: {
@@ -347,21 +326,19 @@ struct ChannelPickerSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
-            .background(
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(
-                                LinearGradient(
-                                    colors: [.white.opacity(0.2), .white.opacity(0.05)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                ),
-                                lineWidth: 0.5
-                            )
+                    .stroke(
+                        LinearGradient(
+                            colors: [.white.opacity(0.2), .white.opacity(0.05)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.5
                     )
             )
+            .shadow(color: .black.opacity(0.15), radius: 10, y: 5)
             .padding(.horizontal)
         }
         .buttonStyle(.plain)
